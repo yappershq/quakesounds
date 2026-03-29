@@ -36,6 +36,8 @@ internal sealed class InterfaceBridge
 {
     private readonly ISharedSystem _sharedSystem;
 
+    internal static InterfaceBridge Instance { get; private set; } = null!;
+
     public InterfaceBridge(string        dllPath,
                            string        sharpPath,
                            Version       version,
@@ -59,6 +61,8 @@ internal sealed class InterfaceBridge
         HookManager     = sharedSystem.GetHookManager();
 
         SharpModule = sharedSystem.GetSharpModuleManager();
+
+        Instance = this;
     }
 
     public string  DllPath   { get; }

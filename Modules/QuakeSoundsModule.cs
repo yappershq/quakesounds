@@ -12,7 +12,7 @@ using Sharp.Shared.Managers;
 using Sharp.Shared.Objects;
 using Sharp.Shared.Types;
 
-namespace QuakeSounds;
+namespace QuakeSounds.Modules;
 
 internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListener
 {
@@ -44,6 +44,9 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     // Mute state cache (slot-indexed, null = not loaded)
     private readonly bool?[] _muteCache = new bool?[64];
+
+    // Reusable game event for center HTML — created once, never disposed (matches MenuManager pattern)
+    private static IGameEvent? _hudEvent;
 
     // Sound event mappings
     private static readonly Dictionary<int, string> KillStreakSounds = new()
@@ -422,15 +425,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
                 continue;
             }
 
-            var controller = client.GetPlayerController();
-
-            if (controller is not { })
-            {
-                continue;
-            }
-
             var html = BuildCenterHtml(client, playerName, streakName, color);
-            controller.Print(HudPrintChannel.Center, html);
+            PrintCenterHtml(client, html);
         }
     }
 
@@ -448,6 +444,26 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         }
 
         return $"<font color='{color}'><b>{playerName} — {streakName}!</b></font>";
+    }
+
+    private static void PrintCenterHtml(IGameClient client, string html)
+    {
+        if (!client.IsValid || client.IsFakeClient)
+            return;
+
+        // Create the event once and reuse it (never dispose) — matches MenuManager pattern
+        if (_hudEvent is null)
+        {
+            _hudEvent = InterfaceBridge.Instance.EventManager
+                .CreateEvent("show_survival_respawn_status", false);
+            if (_hudEvent is null)
+                return;
+            _hudEvent.SetInt("duration", 5);
+            _hudEvent.SetInt("userid", -1);
+        }
+
+        _hudEvent.SetString("loc_token", html);
+        _hudEvent.FireToClient(client);
     }
 
     #endregion
