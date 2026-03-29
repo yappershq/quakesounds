@@ -1,5 +1,14 @@
 {
-  "quakesounds.muted": " Quake sounds muted.",
-  "quakesounds.unmuted": " Quake sounds unmuted.",
-  "quakesounds.streak_message": "{0} \u2014 {1}!"
+  "quakesounds.muted": {
+    "en-us": "Quake sounds muted."
+  },
+  "quakesounds.unmuted": {
+    "en-us": "Quake sounds unmuted."
+  },
+  "quakesounds.streak_message": {
+    "en-us": "{0} — {1}!"
+  },
+  "quakesounds.firstblood": {
+    "en-us": "{0} — FIRST BLOOD!"
+  }
 }

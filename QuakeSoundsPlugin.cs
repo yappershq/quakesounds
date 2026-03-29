@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Sharp.Extensions.GameEventManager;
 using Sharp.Shared;
 using Sharp.Shared.Abstractions;
 
@@ -39,9 +38,6 @@ public class QuakeSoundsPlugin : IModSharpModule
         services.AddSingleton(bridge);
         services.AddSingleton(loggerFactory);
         services.AddSingleton(sharedSystem);
-        services.AddLogging();
-        services.AddGameEventManager();
-
         services.AddModuleDi();
 
         _bridge = bridge;
@@ -51,8 +47,6 @@ public class QuakeSoundsPlugin : IModSharpModule
 
     public bool Init()
     {
-        _serviceProvider.LoadAllSharpExtensions();
-
         foreach (var service in _serviceProvider.GetServices<IModule>())
         {
             try
@@ -109,7 +103,6 @@ public class QuakeSoundsPlugin : IModSharpModule
             }
         }
 
-        _serviceProvider.ShutdownAllSharpExtensions();
     }
 
     public void OnAllModulesLoaded()
