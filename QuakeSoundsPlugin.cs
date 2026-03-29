@@ -39,6 +39,7 @@ public class QuakeSoundsPlugin : IModSharpModule
         services.AddSingleton(bridge);
         services.AddSingleton(loggerFactory);
         services.AddSingleton(sharedSystem);
+        services.AddLogging();
         services.AddModuleDi();
 
         _bridge = bridge;

@@ -1,173 +1,145 @@
 {
   "quakesounds.muted": {
-    "en-us": "Quake sounds muted.",
-    "lt": "Quake garsai nutildyti.",
-    "ru": "Звуки Quake отключены.",
-    "de": "Quake-Sounds stummgeschaltet."
+    "en-US": "Quake sounds muted.",
+    "ru-RU": "Звуки Quake отключены.",
+    "de-DE": "Quake-Sounds stummgeschaltet."
   },
   "quakesounds.unmuted": {
-    "en-us": "Quake sounds unmuted.",
-    "lt": "Quake garsai įjungti.",
-    "ru": "Звуки Quake включены.",
-    "de": "Quake-Sounds aktiviert."
+    "en-US": "Quake sounds unmuted.",
+    "ru-RU": "Звуки Quake включены.",
+    "de-DE": "Quake-Sounds aktiviert."
   },
   "quakesounds.streak_message": {
-    "en-us": "{0} — {1}!"
+    "en-US": "{0} — {1}!"
   },
   "quakesounds.streak.firstblood": {
-    "en-us": "FIRST BLOOD",
-    "lt": "PIRMAS KRAUJAS",
-    "ru": "ПЕРВАЯ КРОВЬ",
-    "de": "ERSTES BLUT"
+    "en-US": "FIRST BLOOD",
+    "ru-RU": "ПЕРВАЯ КРОВЬ",
+    "de-DE": "ERSTES BLUT"
   },
   "quakesounds.streak.doublekill": {
-    "en-us": "DOUBLE KILL",
-    "lt": "DVIGUBAS NUŽUDYMAS",
-    "ru": "ДВОЙНОЕ УБИЙСТВО",
-    "de": "DOPPELKILL"
+    "en-US": "DOUBLE KILL",
+    "ru-RU": "ДВОЙНОЕ УБИЙСТВО",
+    "de-DE": "DOPPELKILL"
   },
   "quakesounds.streak.killingspree": {
-    "en-us": "KILLING SPREE",
-    "lt": "ŽUDYMO BANGA",
-    "ru": "СЕРИЯ УБИЙСТВ",
-    "de": "MORDSERIE"
+    "en-US": "KILLING SPREE",
+    "ru-RU": "СЕРИЯ УБИЙСТВ",
+    "de-DE": "MORDSERIE"
   },
   "quakesounds.streak.dominating": {
-    "en-us": "DOMINATING",
-    "lt": "DOMINAVIMAS",
-    "ru": "ДОМИНИРОВАНИЕ",
-    "de": "DOMINIEREND"
+    "en-US": "DOMINATING",
+    "ru-RU": "ДОМИНИРОВАНИЕ",
+    "de-DE": "DOMINIEREND"
   },
   "quakesounds.streak.holyshit": {
-    "en-us": "HOLY SHIT",
-    "lt": "ŠVENTAS ŠŪDAS",
-    "ru": "НИЧЕГО СЕБЕ",
-    "de": "HEILIGE SCHEISSE"
+    "en-US": "HOLY SHIT",
+    "ru-RU": "НИЧЕГО СЕБЕ",
+    "de-DE": "HEILIGE SCHEISSE"
   },
   "quakesounds.streak.wickedsick": {
-    "en-us": "WICKED SICK",
-    "lt": "ŽIAURIAI ŠAUNU",
-    "ru": "БЕЗУМИЕ",
-    "de": "WAHNSINNIG"
+    "en-US": "WICKED SICK",
+    "ru-RU": "БЕЗУМИЕ",
+    "de-DE": "WAHNSINNIG"
   },
   "quakesounds.streak.monsterkill": {
-    "en-us": "MONSTER KILL",
-    "lt": "MONSTRO NUŽUDYMAS",
-    "ru": "МОНСТР-КИЛЛ",
-    "de": "MONSTERKILL"
+    "en-US": "MONSTER KILL",
+    "ru-RU": "МОНСТР-КИЛЛ",
+    "de-DE": "MONSTERKILL"
   },
   "quakesounds.streak.unstoppable": {
-    "en-us": "UNSTOPPABLE",
-    "lt": "NESUSTABDOMAS",
-    "ru": "НЕУДЕРЖИМЫЙ",
-    "de": "UNAUFHALTSAM"
+    "en-US": "UNSTOPPABLE",
+    "ru-RU": "НЕУДЕРЖИМЫЙ",
+    "de-DE": "UNAUFHALTSAM"
   },
   "quakesounds.streak.godlike": {
-    "en-us": "GODLIKE",
-    "lt": "DIEVIŠKAS",
-    "ru": "БОГОПОДОБНЫЙ",
-    "de": "GÖTTLICH"
+    "en-US": "GODLIKE",
+    "ru-RU": "БОГОПОДОБНЫЙ",
+    "de-DE": "GÖTTLICH"
   },
   "quakesounds.rapid.triplekill": {
-    "en-us": "TRIPLE KILL",
-    "lt": "TRIGUBAS NUŽUDYMAS",
-    "ru": "ТРОЙНОЕ УБИЙСТВО",
-    "de": "DREIFACHKILL"
+    "en-US": "TRIPLE KILL",
+    "ru-RU": "ТРОЙНОЕ УБИЙСТВО",
+    "de-DE": "DREIFACHKILL"
   },
   "quakesounds.rapid.quadrakill": {
-    "en-us": "QUADRA KILL",
-    "lt": "KETURGUBAS NUŽUDYMAS",
-    "ru": "ЧЕТВЕРНОЕ УБИЙСТВО",
-    "de": "VIERFACHKILL"
+    "en-US": "QUADRA KILL",
+    "ru-RU": "ЧЕТВЕРНОЕ УБИЙСТВО",
+    "de-DE": "VIERFACHKILL"
   },
   "quakesounds.rapid.pentakill": {
-    "en-us": "PENTA KILL",
-    "lt": "PENKIAGUBAS NUŽUDYMAS",
-    "ru": "ПЯТЕРНОЕ УБИЙСТВО",
-    "de": "FÜNFFACHKILL"
+    "en-US": "PENTA KILL",
+    "ru-RU": "ПЯТЕРНОЕ УБИЙСТВО",
+    "de-DE": "FÜNFFACHKILL"
   },
   "quakesounds.pack.selected": {
-    "en-us": "Sound pack changed to: {0}",
-    "lt": "Garso paketas pakeistas į: {0}",
-    "ru": "Звуковой набор изменён на: {0}",
-    "de": "Sound-Pack geändert zu: {0}"
+    "en-US": "Sound pack changed to: {0}",
+    "ru-RU": "Звуковой набор изменён на: {0}",
+    "de-DE": "Sound-Pack geändert zu: {0}"
   },
   "quakesounds.pack.current": {
-    "en-us": "Current sound pack: {0}",
-    "lt": "Dabartinis garso paketas: {0}",
-    "ru": "Текущий звуковой набор: {0}",
-    "de": "Aktuelles Sound-Pack: {0}"
+    "en-US": "Current sound pack: {0}",
+    "ru-RU": "Текущий звуковой набор: {0}",
+    "de-DE": "Aktuelles Sound-Pack: {0}"
   },
   "quakesounds.pack.no_permission": {
-    "en-us": "You don't have access to that sound pack.",
-    "lt": "Neturite prieigos prie šio garso paketo.",
-    "ru": "У вас нет доступа к этому звуковому набору.",
-    "de": "Du hast keinen Zugriff auf dieses Sound-Pack."
+    "en-US": "You don't have access to that sound pack.",
+    "ru-RU": "У вас нет доступа к этому звуковому набору.",
+    "de-DE": "Du hast keinen Zugriff auf dieses Sound-Pack."
   },
   "quakesounds.volume.changed": {
-    "en-us": "Volume set to {0}",
-    "lt": "Garsumas nustatytas į {0}",
-    "ru": "Громкость установлена на {0}",
-    "de": "Lautstärke auf {0} gesetzt"
+    "en-US": "Volume set to {0}",
+    "ru-RU": "Громкость установлена на {0}",
+    "de-DE": "Lautstärke auf {0} gesetzt"
   },
   "quakesounds.menu.title": {
-    "en-us": "QuakeSounds Settings",
-    "lt": "QuakeSounds Nustatymai",
-    "ru": "Настройки QuakeSounds",
-    "de": "QuakeSounds Einstellungen"
+    "en-US": "QuakeSounds Settings",
+    "ru-RU": "Настройки QuakeSounds",
+    "de-DE": "QuakeSounds Einstellungen"
   },
   "quakesounds.menu.soundpack": {
-    "en-us": "Sound Pack: {0}",
-    "lt": "Garso paketas: {0}",
-    "ru": "Звуковой набор: {0}",
-    "de": "Sound-Pack: {0}"
+    "en-US": "Sound Pack: {0}",
+    "ru-RU": "Звуковой набор: {0}",
+    "de-DE": "Sound-Pack: {0}"
   },
   "quakesounds.menu.volume": {
-    "en-us": "Volume: {0}",
-    "lt": "Garsumas: {0}",
-    "ru": "Громкость: {0}",
-    "de": "Lautstärke: {0}"
+    "en-US": "Volume: {0}",
+    "ru-RU": "Громкость: {0}",
+    "de-DE": "Lautstärke: {0}"
   },
   "quakesounds.menu.mute": {
-    "en-us": "Mute: {0}",
-    "lt": "Nutildyti: {0}",
-    "ru": "Отключить звук: {0}",
-    "de": "Stumm: {0}"
+    "en-US": "Mute: {0}",
+    "ru-RU": "Отключить звук: {0}",
+    "de-DE": "Stumm: {0}"
   },
   "quakesounds.menu.on": {
-    "en-us": "ON",
-    "lt": "ĮJUNGTA",
-    "ru": "ВКЛ",
-    "de": "AN"
+    "en-US": "ON",
+    "ru-RU": "ВКЛ",
+    "de-DE": "AN"
   },
   "quakesounds.menu.off": {
-    "en-us": "OFF",
-    "lt": "IŠJUNGTA",
-    "ru": "ВЫКЛ",
-    "de": "AUS"
+    "en-US": "OFF",
+    "ru-RU": "ВЫКЛ",
+    "de-DE": "AUS"
   },
   "quakesounds.menu.close": {
-    "en-us": "Close",
-    "lt": "Uždaryti",
-    "ru": "Закрыть",
-    "de": "Schließen"
+    "en-US": "Close",
+    "ru-RU": "Закрыть",
+    "de-DE": "Schließen"
   },
   "quakesounds.menu.back": {
-    "en-us": "Back",
-    "lt": "Atgal",
-    "ru": "Назад",
-    "de": "Zurück"
+    "en-US": "Back",
+    "ru-RU": "Назад",
+    "de-DE": "Zurück"
   },
   "quakesounds.menu.select_pack": {
-    "en-us": "Select Sound Pack",
-    "lt": "Pasirinkite garso paketą",
-    "ru": "Выберите звуковой набор",
-    "de": "Sound-Pack auswählen"
+    "en-US": "Select Sound Pack",
+    "ru-RU": "Выберите звуковой набор",
+    "de-DE": "Sound-Pack auswählen"
   },
   "quakesounds.menu.volume_title": {
-    "en-us": "Volume",
-    "lt": "Garsumas",
-    "ru": "Громкость",
-    "de": "Lautstärke"
+    "en-US": "Volume",
+    "ru-RU": "Громкость",
+    "de-DE": "Lautstärke"
   }
 }

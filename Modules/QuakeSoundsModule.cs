@@ -558,8 +558,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (IsPlayerMuted(client.Slot))
                 continue;
 
-            var pawn = client.GetPlayerController()?.GetPlayerPawn();
-            if (pawn is not { IsValidEntity: true })
+            var controller = client.GetPlayerController();
+            if (controller is not { IsValidEntity: true })
+                continue;
+
+            var pawn = controller.GetPlayerPawn();
+            if (pawn is not { IsValidEntity: true, IsAlive: true })
                 continue;
 
             // Resolve sound from the listener's selected pack
@@ -576,8 +580,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     private void PlaySoundToPlayer(IGameClient client, string soundKey)
     {
-        var pawn = client.GetPlayerController()?.GetPlayerPawn();
-        if (pawn is not { IsValidEntity: true })
+        var controller = client.GetPlayerController();
+        if (controller is not { IsValidEntity: true })
+            return;
+
+        var pawn = controller.GetPlayerPawn();
+        if (pawn is not { IsValidEntity: true, IsAlive: true })
             return;
 
         // Resolve sound from the player's selected pack
@@ -609,10 +617,18 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
             var streakName = _localizerManager?.For(client).Text(streakLocaleKey) ?? streakLocaleKey;
 
-            var template = _localizerManager?.For(client).Text("quakesounds.streak_message");
-            var message  = template is not null
-                ? string.Format(template, playerName, streakName)
-                : $"{playerName} — {streakName}!";
+            // Use string.Format manually — .Text() with format args calls Format() which
+            // throws if the locale string has placeholders but args are passed to Text() incorrectly
+            string message;
+            try
+            {
+                message = _localizerManager?.For(client).Text("quakesounds.streak_message", playerName, streakName)
+                          ?? $"{playerName} — {streakName}!";
+            }
+            catch
+            {
+                message = $"{playerName} — {streakName}!";
+            }
 
             var html = $"<font color='{color}'><b>{message}</b></font>";
             PrintCenterHtml(client, html);
