@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QuakeSounds.Managers;
 using Sharp.Modules.ClientPreferences.Shared;
 using Sharp.Modules.LocalizerManager.Shared;
 using Sharp.Shared.Enums;
@@ -17,6 +18,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 {
     private readonly InterfaceBridge            _bridge;
     private readonly ILogger<QuakeSoundsModule> _logger;
+    private readonly SoundPackManager           _soundPackManager;
 
     // Per-player tracking (slot-indexed)
     private readonly int[]    _killStreaks    = new int[64];
@@ -44,36 +46,37 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     private Action<IPlayerKilledForwardParams>? _playerKilledForward;
 
-    // Kill streak: (soundEvent, localeKey, color)
-    private static readonly (string sound, string localeKey, string color)[] StreakData =
+    // Streak key mapping: kill count -> sound pack key and locale info
+    private static readonly (string key, string localeKey, string color)[] StreakMap =
     [
-        ("", "", ""),                                                                        // 0
-        ("", "", ""),                                                                        // 1
-        ("crafting.killstreaks.doublekill",      "quakesounds.streak.doublekill",    "#FFFFFF"), // 2
-        ("crafting.killstreaks.3_killingspree",  "quakesounds.streak.killingspree",  "#00FF00"), // 3
-        ("crafting.killstreaks.4_dominating",    "quakesounds.streak.dominating",    "#FFFF00"), // 4
-        ("crafting.killstreaks.5_holyshit",      "quakesounds.streak.holyshit",      "#FF8800"), // 5
-        ("crafting.killstreaks.6_wickedsick",    "quakesounds.streak.wickedsick",    "#FF4400"), // 6
-        ("crafting.killstreaks.7_monsterkill",   "quakesounds.streak.monsterkill",   "#FF0000"), // 7
-        ("crafting.killstreaks.8_unstoppable",   "quakesounds.streak.unstoppable",   "#FF00FF"), // 8
-        ("crafting.killstreaks.9_godlike",       "quakesounds.streak.godlike",       "#FF0000"), // 9
+        ("", "", ""),                                                           // 0
+        ("", "", ""),                                                           // 1
+        ("doublekill",   "quakesounds.streak.doublekill",   "#FFFFFF"), // 2
+        ("killingspree", "quakesounds.streak.killingspree", "#00FF00"), // 3
+        ("dominating",   "quakesounds.streak.dominating",   "#FFFF00"), // 4
+        ("holyshit",     "quakesounds.streak.holyshit",     "#FF8800"), // 5
+        ("wickedsick",   "quakesounds.streak.wickedsick",   "#FF4400"), // 6
+        ("monsterkill",  "quakesounds.streak.monsterkill",  "#FF0000"), // 7
+        ("unstoppable",  "quakesounds.streak.unstoppable",  "#FF00FF"), // 8
+        ("godlike",      "quakesounds.streak.godlike",      "#FF0000"), // 9
     ];
 
-    // Rapid multi-kill: (soundEvent, localeKey, color) — indexed by rapid count (3=triple, 4=quadra, 5=penta)
-    private static readonly (string sound, string localeKey, string color)[] RapidData =
+    // Rapid multi-kill key mapping: rapid count -> sound pack key and locale info
+    private static readonly (string key, string localeKey, string color)[] RapidMap =
     [
-        ("", "", ""),                                                                          // 0
-        ("", "", ""),                                                                          // 1
-        ("", "", ""),                                                                          // 2
-        ("crafting.killstreaks.triplekill",  "quakesounds.rapid.triplekill",  "#00FFFF"), // 3
-        ("crafting.killstreaks.quadrakill",  "quakesounds.rapid.quadrakill",  "#FF00FF"), // 4
-        ("crafting.killstreaks.pentakill",   "quakesounds.rapid.pentakill",   "#FFD700"), // 5
+        ("", "", ""),                                                           // 0
+        ("", "", ""),                                                           // 1
+        ("", "", ""),                                                           // 2
+        ("triplekill",  "quakesounds.rapid.triplekill",  "#00FFFF"), // 3
+        ("quadrakill",  "quakesounds.rapid.quadrakill",  "#FF00FF"), // 4
+        ("pentakill",   "quakesounds.rapid.pentakill",   "#FFD700"), // 5
     ];
 
-    public QuakeSoundsModule(InterfaceBridge bridge, ILogger<QuakeSoundsModule> logger)
+    public QuakeSoundsModule(InterfaceBridge bridge, ILogger<QuakeSoundsModule> logger, SoundPackManager soundPackManager)
     {
         _bridge = bridge;
         _logger = logger;
+        _soundPackManager = soundPackManager;
     }
 
     public bool Init()
@@ -95,6 +98,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _bridge.HookManager.PlayerKilledPost.InstallForward(_playerKilledForward);
 
         _bridge.ClientManager.InstallCommandCallback("quakemute", OnQuakeMuteCommand);
+        _bridge.ClientManager.InstallCommandCallback("quakepack", OnQuakePackCommand);
 
         _logger.LogInformation("[QuakeSounds] Initialized");
         return true;
@@ -106,7 +110,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _localizerManager = _bridge.GetLocalizerManager();
 
         if (_clientPreference is null)
-            _logger.LogWarning("[QuakeSounds] ClientPreference not available — mute won't persist");
+            _logger.LogWarning("[QuakeSounds] ClientPreference not available — mute/pack won't persist");
     }
 
     public void Shutdown()
@@ -118,6 +122,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             _bridge.HookManager.PlayerKilledPost.RemoveForward(_playerKilledForward);
 
         _bridge.ClientManager.RemoveCommandCallback("quakemute", OnQuakeMuteCommand);
+        _bridge.ClientManager.RemoveCommandCallback("quakepack", OnQuakePackCommand);
 
         Array.Clear(_killStreaks);
         Array.Clear(_lastKillTime);
@@ -153,6 +158,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _lastKillTime[client.Slot] = 0;
         _rapidKills[client.Slot]   = 0;
         LoadMutePreference(client);
+        _soundPackManager.LoadPlayerPack(client);
     }
 
     public void OnClientDisconnected(IGameClient client, NetworkDisconnectionReason reason)
@@ -161,6 +167,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _lastKillTime[client.Slot] = 0;
         _rapidKills[client.Slot]   = 0;
         _muteCache[client.Slot]    = null;
+        _soundPackManager.ClearPlayerCache(client.Slot);
     }
 
     #endregion
@@ -220,23 +227,23 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (!_firstBloodOccurred && _cvEnableFirstBlood is { } fb && fb.GetBool())
         {
             _firstBloodOccurred = true;
-            PlaySoundToAll("kills.firstblood");
+            PlaySoundToAll("firstblood");
             ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.firstblood", "#FF0000");
             soundPlayed = true;
         }
 
-        // Rapid multi-kill (triple/quadra/penta — overrides streak sound)
+        // Rapid multi-kill (triple/quadra/penta -- overrides streak sound)
         if (!soundPlayed && _rapidKills[attackerSlot] >= 3 && _cvEnableKillStreaks is { } rk && rk.GetBool())
         {
             var rapidIdx = Math.Min(_rapidKills[attackerSlot], 5);
-            var (rapidSound, rapidKey, rapidColor) = RapidData[rapidIdx];
+            var (rapidKey, rapidLocale, rapidColor) = RapidMap[rapidIdx];
 
-            if (!string.IsNullOrEmpty(rapidSound))
+            if (!string.IsNullOrEmpty(rapidKey))
             {
-                PlaySoundToAll(rapidSound);
+                PlaySoundToAll(rapidKey);
 
                 if (_cvEnableCenterMsg is { } cm && cm.GetBool())
-                    ShowLocalizedCenterMessageToAll(killerName, rapidKey, rapidColor);
+                    ShowLocalizedCenterMessageToAll(killerName, rapidLocale, rapidColor);
 
                 soundPlayed = true;
             }
@@ -248,8 +255,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             var idx = Math.Min(kills, 9);
             if (idx >= 2)
             {
-                var (sound, localeKey, color) = StreakData[idx];
-                PlaySoundToAll(sound);
+                var (streakKey, localeKey, color) = StreakMap[idx];
+                PlaySoundToAll(streakKey);
 
                 if (_cvEnableCenterMsg is { } cm && cm.GetBool())
                     ShowLocalizedCenterMessageToAll(killerName, localeKey, color);
@@ -263,7 +270,49 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
                          || (@params.DamageType & DamageFlagBits.Headshot) != 0;
 
         if (isHeadshot && _cvEnableHeadshot is { } hs && hs.GetBool())
-            PlaySoundToPlayer(killerClient, "effects.hitmark.headshot");
+            PlaySoundToPlayer(killerClient, "headshot");
+    }
+
+    #endregion
+
+    #region Sound Pack Command
+
+    private ECommandAction OnQuakePackCommand(IGameClient client, StringCommand command)
+    {
+        if (client.IsFakeClient)
+            return ECommandAction.Skipped;
+
+        var available = _soundPackManager.GetAvailablePacks(client);
+        if (available.Count == 0)
+        {
+            client.Print(HudPrintChannel.Chat, " [QuakeSounds] No sound packs available.");
+            return ECommandAction.Handled;
+        }
+
+        var currentPack = _soundPackManager.GetPlayerPack(client.Slot);
+
+        // Find current pack index in available list and cycle to next
+        var currentIdx = available.FindIndex(p => p.Id == currentPack.Id);
+        var nextIdx = (currentIdx + 1) % available.Count;
+        var nextPack = available[nextIdx];
+
+        if (nextPack.Id == currentPack.Id && available.Count == 1)
+        {
+            // Only one pack available, show current
+            var currentMsg = _localizerManager?.For(client).Text("quakesounds.pack.current")
+                             ?? "Current sound pack: {0}";
+            client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(currentMsg, currentPack.Name)}");
+        }
+        else
+        {
+            _soundPackManager.SetPlayerPack(client, nextPack.Id);
+
+            var selectedMsg = _localizerManager?.For(client).Text("quakesounds.pack.selected")
+                              ?? "Sound pack changed to: {0}";
+            client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(selectedMsg, nextPack.Name)}");
+        }
+
+        return ECommandAction.Handled;
     }
 
     #endregion
@@ -315,7 +364,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     #region Sound Playback
 
-    private void PlaySoundToAll(string soundEvent)
+    private void PlaySoundToAll(string soundKey)
     {
         var volume = _cvVolume?.GetFloat() ?? 1.0f;
 
@@ -330,11 +379,16 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (pawn is not { IsValidEntity: true })
                 continue;
 
-            pawn.EmitSoundClient(soundEvent, volume);
+            // Resolve sound from the listener's selected pack
+            var pack = _soundPackManager.GetPlayerPack(client.Slot);
+            var soundEvent = pack.GetSound(soundKey);
+
+            if (!string.IsNullOrEmpty(soundEvent))
+                pawn.EmitSoundClient(soundEvent, volume);
         }
     }
 
-    private void PlaySoundToPlayer(IGameClient client, string soundEvent)
+    private void PlaySoundToPlayer(IGameClient client, string soundKey)
     {
         var volume = _cvVolume?.GetFloat() ?? 1.0f;
 
@@ -342,7 +396,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (pawn is not { IsValidEntity: true })
             return;
 
-        pawn.EmitSoundClient(soundEvent, volume);
+        // Resolve sound from the player's selected pack
+        var pack = _soundPackManager.GetPlayerPack(client.Slot);
+        var soundEvent = pack.GetSound(soundKey);
+
+        if (!string.IsNullOrEmpty(soundEvent))
+            pawn.EmitSoundClient(soundEvent, volume);
     }
 
     #endregion

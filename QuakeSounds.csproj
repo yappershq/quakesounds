@@ -27,6 +27,9 @@
 		<Reference Include="Sharp.Modules.LocalizerManager.Shared" Private="false">
 			<HintPath>shared\Sharp.Modules.LocalizerManager.Shared\Sharp.Modules.LocalizerManager.Shared.dll</HintPath>
 		</Reference>
+		<Reference Include="Sharp.Modules.AdminManager.Shared" Private="false">
+			<HintPath>shared\Sharp.Modules.AdminManager.Shared\Sharp.Modules.AdminManager.Shared.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 </Project>

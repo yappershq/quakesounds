@@ -1,0 +1,44 @@
+{
+  "packs": [
+    {
+      "id": "default",
+      "name": "Default",
+      "permission": null,
+      "sounds": {
+        "firstblood": "kills.firstblood",
+        "headshot": "effects.hitmark.headshot",
+        "doublekill": "crafting.killstreaks.doublekill",
+        "killingspree": "crafting.killstreaks.3_killingspree",
+        "dominating": "crafting.killstreaks.4_dominating",
+        "holyshit": "crafting.killstreaks.5_holyshit",
+        "wickedsick": "crafting.killstreaks.6_wickedsick",
+        "monsterkill": "crafting.killstreaks.7_monsterkill",
+        "unstoppable": "crafting.killstreaks.8_unstoppable",
+        "godlike": "crafting.killstreaks.9_godlike",
+        "triplekill": "crafting.killstreaks.triplekill",
+        "quadrakill": "crafting.killstreaks.quadrakill",
+        "pentakill": "crafting.killstreaks.pentakill"
+      }
+    },
+    {
+      "id": "classic",
+      "name": "Classic Quake",
+      "permission": "quakesounds.pack.classic",
+      "sounds": {
+        "firstblood": "kills.firstblood",
+        "headshot": "effects.hitmark.headshot",
+        "doublekill": "crafting.killstreaks.doublekill",
+        "killingspree": "crafting.killstreaks.3_killingspree",
+        "dominating": "crafting.killstreaks.4_dominating",
+        "holyshit": "crafting.killstreaks.5_holyshit",
+        "wickedsick": "crafting.killstreaks.6_wickedsick",
+        "monsterkill": "crafting.killstreaks.7_monsterkill",
+        "unstoppable": "crafting.killstreaks.8_unstoppable",
+        "godlike": "crafting.killstreaks.9_godlike",
+        "triplekill": "crafting.killstreaks.triplekill",
+        "quadrakill": "crafting.killstreaks.quadrakill",
+        "pentakill": "crafting.killstreaks.pentakill"
+      }
+    }
+  ]
+}

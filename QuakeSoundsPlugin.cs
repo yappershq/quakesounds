@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QuakeSounds.Managers;
 using Sharp.Shared;
 using Sharp.Shared.Abstractions;
 
@@ -108,6 +109,9 @@ public class QuakeSoundsPlugin : IModSharpModule
     public void OnAllModulesLoaded()
     {
         _bridge.GetLocalizerManager().LoadLocaleFile("quakesounds", true);
+
+        var soundPackManager = _serviceProvider.GetRequiredService<SoundPackManager>();
+        soundPackManager.LoadPacks(_bridge.SharpPath);
     }
 
     string IModSharpModule.DisplayName   => "QuakeSounds";

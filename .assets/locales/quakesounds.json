@@ -85,5 +85,23 @@
     "lt": "PENKIAGUBAS NUŽUDYMAS",
     "ru": "ПЯТЕРНОЕ УБИЙСТВО",
     "de": "FÜNFFACHKILL"
+  },
+  "quakesounds.pack.selected": {
+    "en-us": "Sound pack changed to: {0}",
+    "lt": "Garso paketas pakeistas į: {0}",
+    "ru": "Звуковой набор изменён на: {0}",
+    "de": "Sound-Pack geändert zu: {0}"
+  },
+  "quakesounds.pack.current": {
+    "en-us": "Current sound pack: {0}",
+    "lt": "Dabartinis garso paketas: {0}",
+    "ru": "Текущий звуковой набор: {0}",
+    "de": "Aktuelles Sound-Pack: {0}"
+  },
+  "quakesounds.pack.no_permission": {
+    "en-us": "You don't have access to that sound pack.",
+    "lt": "Neturite prieigos prie šio garso paketo.",
+    "ru": "У вас нет доступа к этому звуковому набору.",
+    "de": "Du hast keinen Zugriff auf dieses Sound-Pack."
   }
 }
