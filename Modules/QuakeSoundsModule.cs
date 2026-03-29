@@ -18,8 +18,10 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private readonly InterfaceBridge            _bridge;
     private readonly ILogger<QuakeSoundsModule> _logger;
 
-    // Per-player kill streak tracking (slot-indexed)
-    private readonly int[] _killStreaks = new int[64];
+    // Per-player tracking (slot-indexed)
+    private readonly int[]    _killStreaks    = new int[64];
+    private readonly double[] _lastKillTime  = new double[64]; // engine time of last kill
+    private readonly int[]    _rapidKills    = new int[64];    // rapid kill count (within time window)
     private bool _firstBloodOccurred;
 
     // ConVars
@@ -30,6 +32,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private IConVar? _cvEnableCenterMsg;
     private IConVar? _cvEnableDuringWarmup;
     private IConVar? _cvResetOnDeath;
+    private IConVar? _cvRapidKillWindow;
+    private IConVar? _cvVolume;
 
     // Cached module interfaces
     private IClientPreference? _clientPreference;
@@ -38,14 +42,13 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private const string MuteCookieKey = "quakesounds_muted";
     private readonly bool?[] _muteCache = new bool?[64];
 
-    // Forward delegate reference (for uninstall)
     private Action<IPlayerKilledForwardParams>? _playerKilledForward;
 
-    // Sound mappings: (soundEvent, localeKey, color)
+    // Kill streak: (soundEvent, localeKey, color)
     private static readonly (string sound, string localeKey, string color)[] StreakData =
     [
-        ("", "", ""),                                                                        // 0 - unused
-        ("", "", ""),                                                                        // 1 - unused
+        ("", "", ""),                                                                        // 0
+        ("", "", ""),                                                                        // 1
         ("crafting.killstreaks.doublekill",      "quakesounds.streak.doublekill",    "#FFFFFF"), // 2
         ("crafting.killstreaks.3_killingspree",  "quakesounds.streak.killingspree",  "#00FF00"), // 3
         ("crafting.killstreaks.4_dominating",    "quakesounds.streak.dominating",    "#FFFF00"), // 4
@@ -56,6 +59,17 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         ("crafting.killstreaks.9_godlike",       "quakesounds.streak.godlike",       "#FF0000"), // 9
     ];
 
+    // Rapid multi-kill: (soundEvent, localeKey, color) — indexed by rapid count (3=triple, 4=quadra, 5=penta)
+    private static readonly (string sound, string localeKey, string color)[] RapidData =
+    [
+        ("", "", ""),                                                                          // 0
+        ("", "", ""),                                                                          // 1
+        ("", "", ""),                                                                          // 2
+        ("crafting.killstreaks.triplekill",  "quakesounds.rapid.triplekill",  "#00FFFF"), // 3
+        ("crafting.killstreaks.quadrakill",  "quakesounds.rapid.quadrakill",  "#FF00FF"), // 4
+        ("crafting.killstreaks.pentakill",   "quakesounds.rapid.pentakill",   "#FFD700"), // 5
+    ];
+
     public QuakeSoundsModule(InterfaceBridge bridge, ILogger<QuakeSoundsModule> logger)
     {
         _bridge = bridge;
@@ -64,18 +78,19 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     public bool Init()
     {
-        _cvEnabled           = _bridge.ConVarManager.CreateConVar("qs_enabled",        true,  "Enable QuakeSounds plugin");
-        _cvEnableKillStreaks  = _bridge.ConVarManager.CreateConVar("qs_killstreaks",    true,  "Enable kill streak sounds");
-        _cvEnableFirstBlood   = _bridge.ConVarManager.CreateConVar("qs_firstblood",     true,  "Enable first blood sound");
-        _cvEnableHeadshot     = _bridge.ConVarManager.CreateConVar("qs_headshot",       true,  "Enable headshot kill sound");
-        _cvEnableCenterMsg    = _bridge.ConVarManager.CreateConVar("qs_center_message", true,  "Enable center HTML messages");
-        _cvEnableDuringWarmup = _bridge.ConVarManager.CreateConVar("qs_during_warmup",  false, "Enable sounds during warmup");
-        _cvResetOnDeath       = _bridge.ConVarManager.CreateConVar("qs_reset_on_death", false, "Reset streak on death");
+        _cvEnabled           = _bridge.ConVarManager.CreateConVar("qs_enabled",           true,  "Enable QuakeSounds plugin");
+        _cvEnableKillStreaks  = _bridge.ConVarManager.CreateConVar("qs_killstreaks",       true,  "Enable kill streak sounds");
+        _cvEnableFirstBlood   = _bridge.ConVarManager.CreateConVar("qs_firstblood",        true,  "Enable first blood sound");
+        _cvEnableHeadshot     = _bridge.ConVarManager.CreateConVar("qs_headshot",          true,  "Enable headshot kill sound");
+        _cvEnableCenterMsg    = _bridge.ConVarManager.CreateConVar("qs_center_message",    true,  "Enable center HTML messages");
+        _cvEnableDuringWarmup = _bridge.ConVarManager.CreateConVar("qs_during_warmup",     false, "Enable sounds during warmup");
+        _cvResetOnDeath       = _bridge.ConVarManager.CreateConVar("qs_reset_on_death",    true,  "Reset streak on death");
+        _cvRapidKillWindow    = _bridge.ConVarManager.CreateConVar("qs_rapid_kill_window", 4.0f,  "Time window (seconds) for rapid multi-kills");
+        _cvVolume             = _bridge.ConVarManager.CreateConVar("qs_volume",            1.0f,  "Sound volume (0.0-1.0)");
 
         _bridge.ModSharp.InstallGameListener(this);
         _bridge.ClientManager.InstallClientListener(this);
 
-        // Use PlayerKilledPost forward instead of game event
         _playerKilledForward = OnPlayerKilledPost;
         _bridge.HookManager.PlayerKilledPost.InstallForward(_playerKilledForward);
 
@@ -105,6 +120,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _bridge.ClientManager.RemoveCommandCallback("quakemute", OnQuakeMuteCommand);
 
         Array.Clear(_killStreaks);
+        Array.Clear(_lastKillTime);
+        Array.Clear(_rapidKills);
         Array.Clear(_muteCache);
     }
 
@@ -116,6 +133,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     public void OnRoundRestarted()
     {
         Array.Clear(_killStreaks);
+        Array.Clear(_lastKillTime);
+        Array.Clear(_rapidKills);
         _firstBloodOccurred = false;
     }
 
@@ -128,22 +147,25 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     public void OnClientPutInServer(IGameClient client)
     {
-        if (client.IsFakeClient)
-            return;
+        if (client.IsFakeClient) return;
 
-        _killStreaks[client.Slot] = 0;
+        _killStreaks[client.Slot]   = 0;
+        _lastKillTime[client.Slot] = 0;
+        _rapidKills[client.Slot]   = 0;
         LoadMutePreference(client);
     }
 
     public void OnClientDisconnected(IGameClient client, NetworkDisconnectionReason reason)
     {
-        _killStreaks[client.Slot] = 0;
-        _muteCache[client.Slot]  = null;
+        _killStreaks[client.Slot]   = 0;
+        _lastKillTime[client.Slot] = 0;
+        _rapidKills[client.Slot]   = 0;
+        _muteCache[client.Slot]    = null;
     }
 
     #endregion
 
-    #region Kill Handling (PlayerKilledPost forward)
+    #region Kill Handling
 
     private void OnPlayerKilledPost(IPlayerKilledForwardParams @params)
     {
@@ -159,15 +181,13 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
         // Reset victim streak on death
         if (_cvResetOnDeath is { } rd && rd.GetBool())
-            _killStreaks[victimClient.Slot] = 0;
+        {
+            _killStreaks[victimClient.Slot]  = 0;
+            _rapidKills[victimClient.Slot]   = 0;
+        }
 
-        // Get attacker slot
         var attackerSlot = @params.AttackerPlayerSlot;
-        if (attackerSlot < 0)
-            return;
-
-        // Self-kill check
-        if (attackerSlot == victimClient.Slot)
+        if (attackerSlot < 0 || attackerSlot == victimClient.Slot)
             return;
 
         var killerClient = _bridge.ClientManager.GetGameClient(new PlayerSlot((byte)attackerSlot));
@@ -179,14 +199,24 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             return;
 
         var killerName = killerController.PlayerName ?? $"Player {attackerSlot}";
+        var now = _bridge.ModSharp.EngineTime();
 
         // Increment streak
         _killStreaks[attackerSlot]++;
         var kills = _killStreaks[attackerSlot];
 
+        // Track rapid kills (kills within time window)
+        var rapidWindow = _cvRapidKillWindow?.GetFloat() ?? 4f;
+        if (now - _lastKillTime[attackerSlot] <= rapidWindow)
+            _rapidKills[attackerSlot]++;
+        else
+            _rapidKills[attackerSlot] = 1;
+
+        _lastKillTime[attackerSlot] = now;
+
         var soundPlayed = false;
 
-        // First blood
+        // First blood (highest priority)
         if (!_firstBloodOccurred && _cvEnableFirstBlood is { } fb && fb.GetBool())
         {
             _firstBloodOccurred = true;
@@ -195,7 +225,24 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             soundPlayed = true;
         }
 
-        // Kill streak
+        // Rapid multi-kill (triple/quadra/penta — overrides streak sound)
+        if (!soundPlayed && _rapidKills[attackerSlot] >= 3 && _cvEnableKillStreaks is { } rk && rk.GetBool())
+        {
+            var rapidIdx = Math.Min(_rapidKills[attackerSlot], 5);
+            var (rapidSound, rapidKey, rapidColor) = RapidData[rapidIdx];
+
+            if (!string.IsNullOrEmpty(rapidSound))
+            {
+                PlaySoundToAll(rapidSound);
+
+                if (_cvEnableCenterMsg is { } cm && cm.GetBool())
+                    ShowLocalizedCenterMessageToAll(killerName, rapidKey, rapidColor);
+
+                soundPlayed = true;
+            }
+        }
+
+        // Kill streak (2-9+)
         if (!soundPlayed && _cvEnableKillStreaks is { } ks && ks.GetBool())
         {
             var idx = Math.Min(kills, 9);
@@ -211,7 +258,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             }
         }
 
-        // Headshot (killer only)
+        // Headshot (killer only, independent of other sounds)
         var isHeadshot = @params.HitGroup == HitGroupType.Head
                          || (@params.DamageType & DamageFlagBits.Headshot) != 0;
 
@@ -270,6 +317,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     private void PlaySoundToAll(string soundEvent)
     {
+        var volume = _cvVolume?.GetFloat() ?? 1.0f;
+
         foreach (var client in _bridge.ClientManager.GetGameClients(true))
         {
             if (client.IsFakeClient || client.IsHltv)
@@ -281,17 +330,19 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (pawn is not { IsValidEntity: true })
                 continue;
 
-            pawn.EmitSoundClient(soundEvent);
+            pawn.EmitSoundClient(soundEvent, volume);
         }
     }
 
-    private static void PlaySoundToPlayer(IGameClient client, string soundEvent)
+    private void PlaySoundToPlayer(IGameClient client, string soundEvent)
     {
+        var volume = _cvVolume?.GetFloat() ?? 1.0f;
+
         var pawn = client.GetPlayerController()?.GetPlayerPawn();
         if (pawn is not { IsValidEntity: true })
             return;
 
-        pawn.EmitSoundClient(soundEvent);
+        pawn.EmitSoundClient(soundEvent, volume);
     }
 
     #endregion
@@ -310,10 +361,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (IsPlayerMuted(client.Slot))
                 continue;
 
-            // Resolve streak name per-client locale
             var streakName = _localizerManager?.For(client).Text(streakLocaleKey) ?? streakLocaleKey;
 
-            // Build message using the streak_message template
             var template = _localizerManager?.For(client).Text("quakesounds.streak_message");
             var message  = template is not null
                 ? string.Format(template, playerName, streakName)

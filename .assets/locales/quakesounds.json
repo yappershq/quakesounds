@@ -67,5 +67,23 @@
     "lt": "DIEVIŠKAS",
     "ru": "БОГОПОДОБНЫЙ",
     "de": "GÖTTLICH"
+  },
+  "quakesounds.rapid.triplekill": {
+    "en-us": "TRIPLE KILL",
+    "lt": "TRIGUBAS NUŽUDYMAS",
+    "ru": "ТРОЙНОЕ УБИЙСТВО",
+    "de": "DREIFACHKILL"
+  },
+  "quakesounds.rapid.quadrakill": {
+    "en-us": "QUADRA KILL",
+    "lt": "KETURGUBAS NUŽUDYMAS",
+    "ru": "ЧЕТВЕРНОЕ УБИЙСТВО",
+    "de": "VIERFACHKILL"
+  },
+  "quakesounds.rapid.pentakill": {
+    "en-us": "PENTA KILL",
+    "lt": "PENKIAGUBAS NUŽUDYMAS",
+    "ru": "ПЯТЕРНОЕ УБИЙСТВО",
+    "de": "FÜNFFACHKILL"
   }
 }
