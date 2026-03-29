@@ -1,14 +1,71 @@
 {
   "quakesounds.muted": {
-    "en-us": "Quake sounds muted."
+    "en-us": "Quake sounds muted.",
+    "lt": "Quake garsai nutildyti.",
+    "ru": "Звуки Quake отключены.",
+    "de": "Quake-Sounds stummgeschaltet."
   },
   "quakesounds.unmuted": {
-    "en-us": "Quake sounds unmuted."
+    "en-us": "Quake sounds unmuted.",
+    "lt": "Quake garsai įjungti.",
+    "ru": "Звуки Quake включены.",
+    "de": "Quake-Sounds aktiviert."
   },
   "quakesounds.streak_message": {
     "en-us": "{0} — {1}!"
   },
-  "quakesounds.firstblood": {
-    "en-us": "{0} — FIRST BLOOD!"
+  "quakesounds.streak.firstblood": {
+    "en-us": "FIRST BLOOD",
+    "lt": "PIRMAS KRAUJAS",
+    "ru": "ПЕРВАЯ КРОВЬ",
+    "de": "ERSTES BLUT"
+  },
+  "quakesounds.streak.doublekill": {
+    "en-us": "DOUBLE KILL",
+    "lt": "DVIGUBAS NUŽUDYMAS",
+    "ru": "ДВОЙНОЕ УБИЙСТВО",
+    "de": "DOPPELKILL"
+  },
+  "quakesounds.streak.killingspree": {
+    "en-us": "KILLING SPREE",
+    "lt": "ŽUDYMO BANGA",
+    "ru": "СЕРИЯ УБИЙСТВ",
+    "de": "MORDSERIE"
+  },
+  "quakesounds.streak.dominating": {
+    "en-us": "DOMINATING",
+    "lt": "DOMINAVIMAS",
+    "ru": "ДОМИНИРОВАНИЕ",
+    "de": "DOMINIEREND"
+  },
+  "quakesounds.streak.holyshit": {
+    "en-us": "HOLY SHIT",
+    "lt": "ŠVENTAS ŠŪDAS",
+    "ru": "НИЧЕГО СЕБЕ",
+    "de": "HEILIGE SCHEISSE"
+  },
+  "quakesounds.streak.wickedsick": {
+    "en-us": "WICKED SICK",
+    "lt": "ŽIAURIAI ŠAUNU",
+    "ru": "БЕЗУМИЕ",
+    "de": "WAHNSINNIG"
+  },
+  "quakesounds.streak.monsterkill": {
+    "en-us": "MONSTER KILL",
+    "lt": "MONSTRO NUŽUDYMAS",
+    "ru": "МОНСТР-КИЛЛ",
+    "de": "MONSTERKILL"
+  },
+  "quakesounds.streak.unstoppable": {
+    "en-us": "UNSTOPPABLE",
+    "lt": "NESUSTABDOMAS",
+    "ru": "НЕУДЕРЖИМЫЙ",
+    "de": "UNAUFHALTSAM"
+  },
+  "quakesounds.streak.godlike": {
+    "en-us": "GODLIKE",
+    "lt": "DIEVIŠKAS",
+    "ru": "БОГОПОДОБНЫЙ",
+    "de": "GÖTTLICH"
   }
 }

@@ -41,19 +41,19 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     // Forward delegate reference (for uninstall)
     private Action<IPlayerKilledForwardParams>? _playerKilledForward;
 
-    // Sound mappings
-    private static readonly (string sound, string name, string color)[] StreakData =
+    // Sound mappings: (soundEvent, localeKey, color)
+    private static readonly (string sound, string localeKey, string color)[] StreakData =
     [
-        ("", "", ""),                                                    // 0 - unused
-        ("", "", ""),                                                    // 1 - unused
-        ("crafting.killstreaks.doublekill",      "DOUBLE KILL",    "#FFFFFF"), // 2
-        ("crafting.killstreaks.3_killingspree",  "KILLING SPREE",  "#00FF00"), // 3
-        ("crafting.killstreaks.4_dominating",    "DOMINATING",      "#FFFF00"), // 4
-        ("crafting.killstreaks.5_holyshit",      "HOLY SHIT",       "#FF8800"), // 5
-        ("crafting.killstreaks.6_wickedsick",    "WICKED SICK",     "#FF4400"), // 6
-        ("crafting.killstreaks.7_monsterkill",   "MONSTER KILL",    "#FF0000"), // 7
-        ("crafting.killstreaks.8_unstoppable",   "UNSTOPPABLE",     "#FF00FF"), // 8
-        ("crafting.killstreaks.9_godlike",       "GODLIKE",         "#FF0000"), // 9
+        ("", "", ""),                                                                        // 0 - unused
+        ("", "", ""),                                                                        // 1 - unused
+        ("crafting.killstreaks.doublekill",      "quakesounds.streak.doublekill",    "#FFFFFF"), // 2
+        ("crafting.killstreaks.3_killingspree",  "quakesounds.streak.killingspree",  "#00FF00"), // 3
+        ("crafting.killstreaks.4_dominating",    "quakesounds.streak.dominating",    "#FFFF00"), // 4
+        ("crafting.killstreaks.5_holyshit",      "quakesounds.streak.holyshit",      "#FF8800"), // 5
+        ("crafting.killstreaks.6_wickedsick",    "quakesounds.streak.wickedsick",    "#FF4400"), // 6
+        ("crafting.killstreaks.7_monsterkill",   "quakesounds.streak.monsterkill",   "#FF0000"), // 7
+        ("crafting.killstreaks.8_unstoppable",   "quakesounds.streak.unstoppable",   "#FF00FF"), // 8
+        ("crafting.killstreaks.9_godlike",       "quakesounds.streak.godlike",       "#FF0000"), // 9
     ];
 
     public QuakeSoundsModule(InterfaceBridge bridge, ILogger<QuakeSoundsModule> logger)
@@ -191,7 +191,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         {
             _firstBloodOccurred = true;
             PlaySoundToAll("kills.firstblood");
-            ShowCenterMessageToAll(killerName, "FIRST BLOOD", "#FF0000");
+            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.firstblood", "#FF0000");
             soundPlayed = true;
         }
 
@@ -201,11 +201,11 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             var idx = Math.Min(kills, 9);
             if (idx >= 2)
             {
-                var (sound, name, color) = StreakData[idx];
+                var (sound, localeKey, color) = StreakData[idx];
                 PlaySoundToAll(sound);
 
                 if (_cvEnableCenterMsg is { } cm && cm.GetBool())
-                    ShowCenterMessageToAll(killerName, name, color);
+                    ShowLocalizedCenterMessageToAll(killerName, localeKey, color);
 
                 soundPlayed = true;
             }
@@ -298,7 +298,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     #region Center HTML Messages (survival token)
 
-    private void ShowCenterMessageToAll(string playerName, string streakName, string color)
+    private void ShowLocalizedCenterMessageToAll(string playerName, string streakLocaleKey, string color)
     {
         if (_cvEnableCenterMsg is { } cm && !cm.GetBool())
             return;
@@ -310,22 +310,18 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (IsPlayerMuted(client.Slot))
                 continue;
 
-            var html = BuildCenterHtml(client, playerName, streakName, color);
+            // Resolve streak name per-client locale
+            var streakName = _localizerManager?.For(client).Text(streakLocaleKey) ?? streakLocaleKey;
+
+            // Build message using the streak_message template
+            var template = _localizerManager?.For(client).Text("quakesounds.streak_message");
+            var message  = template is not null
+                ? string.Format(template, playerName, streakName)
+                : $"{playerName} — {streakName}!";
+
+            var html = $"<font color='{color}'><b>{message}</b></font>";
             PrintCenterHtml(client, html);
         }
-    }
-
-    private string BuildCenterHtml(IGameClient client, string playerName, string streakName, string color)
-    {
-        var localized = _localizerManager?.For(client).Text("quakesounds.streak_message");
-
-        if (localized is not null)
-        {
-            var formatted = string.Format(localized, playerName, streakName);
-            return $"<font color='{color}'><b>{formatted}</b></font>";
-        }
-
-        return $"<font color='{color}'><b>{playerName} — {streakName}!</b></font>";
     }
 
     private void PrintCenterHtml(IGameClient client, string html, int duration = 3)
