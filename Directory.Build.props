@@ -1,0 +1,8 @@
+<Project>
+	<PropertyGroup>
+		<LangVersion>14</LangVersion>
+		<OutputPath>$(MSBuildThisFileDirectory).build/modules/QuakeSounds</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+	</PropertyGroup>
+</Project>

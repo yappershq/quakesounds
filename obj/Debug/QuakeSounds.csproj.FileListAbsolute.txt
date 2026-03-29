@@ -1,0 +1,12 @@
+/home/claude/quakesounds/.build/modules/QuakeSounds/QuakeSounds.deps.json
+/home/claude/quakesounds/.build/modules/QuakeSounds/QuakeSounds.dll
+/home/claude/quakesounds/.build/modules/QuakeSounds/QuakeSounds.pdb
+/home/claude/quakesounds/obj/Debug/QuakeSounds.csproj.AssemblyReference.cache
+/home/claude/quakesounds/obj/Debug/QuakeSounds.GeneratedMSBuildEditorConfig.editorconfig
+/home/claude/quakesounds/obj/Debug/QuakeSounds.AssemblyInfoInputs.cache
+/home/claude/quakesounds/obj/Debug/QuakeSounds.AssemblyInfo.cs
+/home/claude/quakesounds/obj/Debug/QuakeSounds.csproj.CoreCompileInputs.cache
+/home/claude/quakesounds/obj/Debug/QuakeSounds.dll
+/home/claude/quakesounds/obj/Debug/refint/QuakeSounds.dll
+/home/claude/quakesounds/obj/Debug/QuakeSounds.pdb
+/home/claude/quakesounds/obj/Debug/ref/QuakeSounds.dll
