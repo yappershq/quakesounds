@@ -103,5 +103,71 @@
     "lt": "Neturite prieigos prie šio garso paketo.",
     "ru": "У вас нет доступа к этому звуковому набору.",
     "de": "Du hast keinen Zugriff auf dieses Sound-Pack."
+  },
+  "quakesounds.volume.changed": {
+    "en-us": "Volume set to {0}",
+    "lt": "Garsumas nustatytas į {0}",
+    "ru": "Громкость установлена на {0}",
+    "de": "Lautstärke auf {0} gesetzt"
+  },
+  "quakesounds.menu.title": {
+    "en-us": "QuakeSounds Settings",
+    "lt": "QuakeSounds Nustatymai",
+    "ru": "Настройки QuakeSounds",
+    "de": "QuakeSounds Einstellungen"
+  },
+  "quakesounds.menu.soundpack": {
+    "en-us": "Sound Pack: {0}",
+    "lt": "Garso paketas: {0}",
+    "ru": "Звуковой набор: {0}",
+    "de": "Sound-Pack: {0}"
+  },
+  "quakesounds.menu.volume": {
+    "en-us": "Volume: {0}",
+    "lt": "Garsumas: {0}",
+    "ru": "Громкость: {0}",
+    "de": "Lautstärke: {0}"
+  },
+  "quakesounds.menu.mute": {
+    "en-us": "Mute: {0}",
+    "lt": "Nutildyti: {0}",
+    "ru": "Отключить звук: {0}",
+    "de": "Stumm: {0}"
+  },
+  "quakesounds.menu.on": {
+    "en-us": "ON",
+    "lt": "ĮJUNGTA",
+    "ru": "ВКЛ",
+    "de": "AN"
+  },
+  "quakesounds.menu.off": {
+    "en-us": "OFF",
+    "lt": "IŠJUNGTA",
+    "ru": "ВЫКЛ",
+    "de": "AUS"
+  },
+  "quakesounds.menu.close": {
+    "en-us": "Close",
+    "lt": "Uždaryti",
+    "ru": "Закрыть",
+    "de": "Schließen"
+  },
+  "quakesounds.menu.back": {
+    "en-us": "Back",
+    "lt": "Atgal",
+    "ru": "Назад",
+    "de": "Zurück"
+  },
+  "quakesounds.menu.select_pack": {
+    "en-us": "Select Sound Pack",
+    "lt": "Pasirinkite garso paketą",
+    "ru": "Выберите звуковой набор",
+    "de": "Sound-Pack auswählen"
+  },
+  "quakesounds.menu.volume_title": {
+    "en-us": "Volume",
+    "lt": "Garsumas",
+    "ru": "Громкость",
+    "de": "Lautstärke"
   }
 }

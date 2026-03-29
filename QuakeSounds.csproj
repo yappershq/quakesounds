@@ -30,6 +30,9 @@
 		<Reference Include="Sharp.Modules.AdminManager.Shared" Private="false">
 			<HintPath>shared\Sharp.Modules.AdminManager.Shared\Sharp.Modules.AdminManager.Shared.dll</HintPath>
 		</Reference>
+		<Reference Include="Sharp.Modules.MenuManager.Shared" Private="false">
+			<HintPath>shared\Sharp.Modules.MenuManager.Shared\Sharp.Modules.MenuManager.Shared.dll</HintPath>
+		</Reference>
 	</ItemGroup>
 
 </Project>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Sharp.Modules.AdminManager.Shared;
 using Sharp.Modules.ClientPreferences.Shared;
 using Sharp.Modules.LocalizerManager.Shared;
+using Sharp.Modules.MenuManager.Shared;
 using Sharp.Shared;
 using Sharp.Shared.Managers;
 using Sharp.Shared.Objects;
@@ -90,7 +91,9 @@ internal sealed class InterfaceBridge
     private ILocalizerManager? _cachedLocalizerManager;
     private IClientPreference? _cachedClientPreference;
     private IAdminManager?     _cachedAdminManager;
+    private IMenuManager?      _cachedMenuManager;
     private bool               _adminManagerResolved;
+    private bool               _menuManagerResolved;
 
     public ILocalizerManager GetLocalizerManager()
     {
@@ -140,5 +143,19 @@ internal sealed class InterfaceBridge
 
         _adminManagerResolved = true;
         return _cachedAdminManager;
+    }
+
+    public IMenuManager? GetMenuManager()
+    {
+        if (_menuManagerResolved)
+            return _cachedMenuManager;
+
+        var iface = SharpModule.GetOptionalSharpModuleInterface<IMenuManager>(IMenuManager.Identity);
+
+        if (iface is { IsAvailable: true, Instance: { } instance })
+            _cachedMenuManager = instance;
+
+        _menuManagerResolved = true;
+        return _cachedMenuManager;
     }
 }

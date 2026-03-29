@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using QuakeSounds.Managers;
 using Sharp.Modules.ClientPreferences.Shared;
 using Sharp.Modules.LocalizerManager.Shared;
+using Sharp.Modules.MenuManager.Shared;
 using Sharp.Shared.Enums;
 using Sharp.Shared.HookParams;
 using Sharp.Shared.Listeners;
@@ -26,6 +27,10 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private readonly int[]    _rapidKills    = new int[64];    // rapid kill count (within time window)
     private bool _firstBloodOccurred;
 
+    // Per-player volume (slot-indexed), null = use server default
+    private readonly float?[] _volumeCache = new float?[64];
+    private const string VolumeCookieKey = "quakesounds_volume";
+
     // ConVars
     private IConVar? _cvEnabled;
     private IConVar? _cvEnableKillStreaks;
@@ -40,11 +45,22 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     // Cached module interfaces
     private IClientPreference? _clientPreference;
     private ILocalizerManager? _localizerManager;
+    private IMenuManager?      _menuManager;
 
     private const string MuteCookieKey = "quakesounds_muted";
     private readonly bool?[] _muteCache = new bool?[64];
 
     private Action<IPlayerKilledForwardParams>? _playerKilledForward;
+
+    // Volume presets
+    private static readonly (float value, string label)[] VolumePresets =
+    [
+        (1.00f, "100%"),
+        (0.75f, "75%"),
+        (0.50f, "50%"),
+        (0.25f, "25%"),
+        (0.10f, "10%"),
+    ];
 
     // Streak key mapping: kill count -> sound pack key and locale info
     private static readonly (string key, string localeKey, string color)[] StreakMap =
@@ -89,7 +105,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _cvEnableDuringWarmup = _bridge.ConVarManager.CreateConVar("qs_during_warmup",     false, "Enable sounds during warmup");
         _cvResetOnDeath       = _bridge.ConVarManager.CreateConVar("qs_reset_on_death",    true,  "Reset streak on death");
         _cvRapidKillWindow    = _bridge.ConVarManager.CreateConVar("qs_rapid_kill_window", 4.0f,  "Time window (seconds) for rapid multi-kills");
-        _cvVolume             = _bridge.ConVarManager.CreateConVar("qs_volume",            1.0f,  "Sound volume (0.0-1.0)");
+        _cvVolume             = _bridge.ConVarManager.CreateConVar("qs_volume",            1.0f,  "Sound volume (0.0-1.0) — server default");
 
         _bridge.ModSharp.InstallGameListener(this);
         _bridge.ClientManager.InstallClientListener(this);
@@ -99,6 +115,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
         _bridge.ClientManager.InstallCommandCallback("quakemute", OnQuakeMuteCommand);
         _bridge.ClientManager.InstallCommandCallback("quakepack", OnQuakePackCommand);
+        _bridge.ClientManager.InstallCommandCallback("quake", OnQuakeMenuCommand);
+        _bridge.ClientManager.InstallCommandCallback("qs", OnQuakeMenuCommand);
 
         _logger.LogInformation("[QuakeSounds] Initialized");
         return true;
@@ -108,9 +126,13 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     {
         _clientPreference = _bridge.GetClientPreference();
         _localizerManager = _bridge.GetLocalizerManager();
+        _menuManager      = _bridge.GetMenuManager();
 
         if (_clientPreference is null)
-            _logger.LogWarning("[QuakeSounds] ClientPreference not available — mute/pack won't persist");
+            _logger.LogWarning("[QuakeSounds] ClientPreference not available — mute/pack/volume won't persist");
+
+        if (_menuManager is null)
+            _logger.LogWarning("[QuakeSounds] MenuManager not available — .quake/.qs menu won't work");
     }
 
     public void Shutdown()
@@ -123,11 +145,14 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
         _bridge.ClientManager.RemoveCommandCallback("quakemute", OnQuakeMuteCommand);
         _bridge.ClientManager.RemoveCommandCallback("quakepack", OnQuakePackCommand);
+        _bridge.ClientManager.RemoveCommandCallback("quake", OnQuakeMenuCommand);
+        _bridge.ClientManager.RemoveCommandCallback("qs", OnQuakeMenuCommand);
 
         Array.Clear(_killStreaks);
         Array.Clear(_lastKillTime);
         Array.Clear(_rapidKills);
         Array.Clear(_muteCache);
+        Array.Clear(_volumeCache);
     }
 
     #region IGameListener
@@ -158,6 +183,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _lastKillTime[client.Slot] = 0;
         _rapidKills[client.Slot]   = 0;
         LoadMutePreference(client);
+        LoadVolumePreference(client);
         _soundPackManager.LoadPlayerPack(client);
     }
 
@@ -167,6 +193,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _lastKillTime[client.Slot] = 0;
         _rapidKills[client.Slot]   = 0;
         _muteCache[client.Slot]    = null;
+        _volumeCache[client.Slot]  = null;
         _soundPackManager.ClearPlayerCache(client.Slot);
     }
 
@@ -275,6 +302,129 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     #endregion
 
+    #region Settings Menu
+
+    private ECommandAction OnQuakeMenuCommand(IGameClient client, StringCommand command)
+    {
+        if (client.IsFakeClient)
+            return ECommandAction.Skipped;
+
+        if (_menuManager is null)
+        {
+            client.Print(HudPrintChannel.Chat, " [QuakeSounds] Menu is not available.");
+            return ECommandAction.Handled;
+        }
+
+        var menu = BuildMainMenu();
+        _menuManager.DisplayMenu(client, menu);
+        return ECommandAction.Handled;
+    }
+
+    private Menu BuildMainMenu()
+    {
+        return Menu.Create()
+            .Title(client => _localizerManager?.For(client).Text("quakesounds.menu.title") ?? "QuakeSounds Settings")
+            .SubMenu(
+                client =>
+                {
+                    var pack = _soundPackManager.GetPlayerPack(client.Slot);
+                    var label = _localizerManager?.For(client).Text("quakesounds.menu.soundpack") ?? "Sound Pack: {0}";
+                    return string.Format(label, pack.Name);
+                },
+                BuildPackSubMenu)
+            .SubMenu(
+                client =>
+                {
+                    var vol = GetPlayerVolume(client.Slot);
+                    var pct = $"{(int)(vol * 100)}%";
+                    var label = _localizerManager?.For(client).Text("quakesounds.menu.volume") ?? "Volume: {0}";
+                    return string.Format(label, pct);
+                },
+                BuildVolumeSubMenu)
+            .Item(
+                client =>
+                {
+                    var muted = IsPlayerMuted(client.Slot);
+                    var label = _localizerManager?.For(client).Text("quakesounds.menu.mute") ?? "Mute: {0}";
+                    var state = muted
+                        ? (_localizerManager?.For(client).Text("quakesounds.menu.on") ?? "ON")
+                        : (_localizerManager?.For(client).Text("quakesounds.menu.off") ?? "OFF");
+                    return string.Format(label, state);
+                },
+                ctrl =>
+                {
+                    ToggleMute(ctrl.Client);
+                    ctrl.Refresh();
+                })
+            .ExitItem(client => _localizerManager?.For(client).Text("quakesounds.menu.close") ?? "Close")
+            .Build();
+    }
+
+    private Menu BuildPackSubMenu(IGameClient client)
+    {
+        var available = _soundPackManager.GetAvailablePacks(client);
+        var currentPack = _soundPackManager.GetPlayerPack(client.Slot);
+
+        var builder = Menu.Create()
+            .Title(c => _localizerManager?.For(c).Text("quakesounds.menu.select_pack") ?? "Select Sound Pack");
+
+        foreach (var pack in available)
+        {
+            var packId = pack.Id;
+            var packName = pack.Name;
+            var isCurrent = pack.Id == currentPack.Id;
+            var display = isCurrent ? $"\u2713 {packName}" : packName;
+
+            builder.Item(display, ctrl =>
+            {
+                _soundPackManager.SetPlayerPack(ctrl.Client, packId);
+
+                var selectedMsg = _localizerManager?.For(ctrl.Client).Text("quakesounds.pack.selected")
+                                  ?? "Sound pack changed to: {0}";
+                ctrl.Client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(selectedMsg, packName)}");
+
+                ctrl.GoBack();
+            });
+        }
+
+        builder.BackItem(c => _localizerManager?.For(c).Text("quakesounds.menu.back") ?? "Back");
+
+        return builder.Build();
+    }
+
+    private Menu BuildVolumeSubMenu(IGameClient client)
+    {
+        var currentVol = GetPlayerVolume(client.Slot);
+
+        var builder = Menu.Create()
+            .Title(c => _localizerManager?.For(c).Text("quakesounds.menu.volume_title") ?? "Volume");
+
+        foreach (var (value, label) in VolumePresets)
+        {
+            var presetValue = value;
+            var presetLabel = label;
+            var isCurrent = Math.Abs(currentVol - presetValue) < 0.01f;
+            var display = isCurrent ? $"\u2713 {presetLabel}" : presetLabel;
+
+            builder.Item(display, ctrl =>
+            {
+                SetPlayerVolume(ctrl.Client, presetValue);
+
+                var volMsg = _localizerManager?.For(ctrl.Client).Text("quakesounds.volume.changed")
+                             ?? "Volume set to {0}";
+                ctrl.Client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(volMsg, presetLabel)}");
+
+                ctrl.GoBack();
+            });
+        }
+
+        builder.BackItem(c => _localizerManager?.For(c).Text("quakesounds.menu.back") ?? "Back");
+
+        return builder.Build();
+    }
+
+    #endregion
+
     #region Sound Pack Command
 
     private ECommandAction OnQuakePackCommand(IGameClient client, StringCommand command)
@@ -362,12 +512,45 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     #endregion
 
+    #region Volume Preference
+
+    private void LoadVolumePreference(IGameClient client)
+    {
+        if (_clientPreference is null || !_clientPreference.IsLoaded(client.SteamId))
+        {
+            _volumeCache[client.Slot] = null;
+            return;
+        }
+
+        var cookie = _clientPreference.GetCookie(client.SteamId, VolumeCookieKey);
+
+        if (cookie is { Type: CookieValueType.Double })
+        {
+            _volumeCache[client.Slot] = (float)cookie.GetDouble();
+        }
+        else
+        {
+            _volumeCache[client.Slot] = null;
+        }
+    }
+
+    private float GetPlayerVolume(int slot)
+    {
+        return _volumeCache[slot] ?? _cvVolume?.GetFloat() ?? 1.0f;
+    }
+
+    private void SetPlayerVolume(IGameClient client, float volume)
+    {
+        _volumeCache[client.Slot] = volume;
+        _clientPreference?.SetCookie(client.SteamId, VolumeCookieKey, (double)volume);
+    }
+
+    #endregion
+
     #region Sound Playback
 
     private void PlaySoundToAll(string soundKey)
     {
-        var volume = _cvVolume?.GetFloat() ?? 1.0f;
-
         foreach (var client in _bridge.ClientManager.GetGameClients(true))
         {
             if (client.IsFakeClient || client.IsHltv)
@@ -384,14 +567,15 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             var soundEvent = pack.GetSound(soundKey);
 
             if (!string.IsNullOrEmpty(soundEvent))
+            {
+                var volume = GetPlayerVolume(client.Slot);
                 pawn.EmitSoundClient(soundEvent, volume);
+            }
         }
     }
 
     private void PlaySoundToPlayer(IGameClient client, string soundKey)
     {
-        var volume = _cvVolume?.GetFloat() ?? 1.0f;
-
         var pawn = client.GetPlayerController()?.GetPlayerPawn();
         if (pawn is not { IsValidEntity: true })
             return;
@@ -401,7 +585,10 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         var soundEvent = pack.GetSound(soundKey);
 
         if (!string.IsNullOrEmpty(soundEvent))
+        {
+            var volume = GetPlayerVolume(client.Slot);
             pawn.EmitSoundClient(soundEvent, volume);
+        }
     }
 
     #endregion
