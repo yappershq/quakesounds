@@ -113,6 +113,18 @@ public class QuakeSoundsPlugin : IModSharpModule
 
         var soundPackManager = _serviceProvider.GetRequiredService<SoundPackManager>();
         soundPackManager.LoadPacks(_bridge.SharpPath);
+
+        foreach (var service in _serviceProvider.GetServices<IModule>())
+        {
+            try
+            {
+                service.OnAllModulesLoaded(_serviceProvider);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error when calling OnAllModulesLoaded for {Service}", service.GetType().FullName);
+            }
+        }
     }
 
     string IModSharpModule.DisplayName   => "QuakeSounds";

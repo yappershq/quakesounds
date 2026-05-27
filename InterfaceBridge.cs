@@ -18,6 +18,10 @@ internal interface IModule
     {
     }
 
+    void OnAllModulesLoaded(ServiceProvider provider)
+    {
+    }
+
     void Shutdown()
     {
     }

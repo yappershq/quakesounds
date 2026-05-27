@@ -6,6 +6,7 @@ using Sharp.Modules.ClientPreferences.Shared;
 using Sharp.Modules.LocalizerManager.Shared;
 using Sharp.Modules.MenuManager.Shared;
 using Sharp.Shared.Enums;
+using Sharp.Shared.GameEvents;
 using Sharp.Shared.HookParams;
 using Sharp.Shared.Listeners;
 using Sharp.Shared.Managers;
@@ -15,16 +16,17 @@ using Sharp.Shared.Units;
 
 namespace QuakeSounds.Modules;
 
-internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListener
+internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListener, IEventListener
 {
     private readonly InterfaceBridge            _bridge;
     private readonly ILogger<QuakeSoundsModule> _logger;
     private readonly SoundPackManager           _soundPackManager;
 
     // Per-player tracking (slot-indexed)
-    private readonly int[]    _killStreaks    = new int[64];
-    private readonly double[] _lastKillTime  = new double[64]; // engine time of last kill
-    private readonly int[]    _rapidKills    = new int[64];    // rapid kill count (within time window)
+    private readonly int[]    _killStreaks    = new int[64]; // kills without dying — PERSISTS across rounds
+    private readonly double[] _lastKillTime   = new double[64]; // engine time of last kill (combo window)
+    private readonly int[]    _comboCount     = new int[64]; // rapid multikill — expires on the rapid window
+    private readonly int[]    _headshotStreak = new int[64]; // consecutive headshot kills in a life
     private bool _firstBloodOccurred;
 
     // Per-player volume (slot-indexed), null = use server default
@@ -50,8 +52,6 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private const string MuteCookieKey = "quakesounds_muted";
     private readonly bool?[] _muteCache = new bool?[64];
 
-    private Action<IPlayerKilledForwardParams>? _playerKilledForward;
-
     // Volume presets
     private static readonly (float value, string label)[] VolumePresets =
     [
@@ -62,31 +62,30 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         (0.10f, "10%"),
     ];
 
-    // Streak key mapping: kill count -> sound pack key and locale info
-    private static readonly (string key, string localeKey, string color)[] StreakMap =
-    [
-        ("", "", ""),                                                           // 0
-        ("", "", ""),                                                           // 1
-        ("doublekill",   "quakesounds.streak.doublekill",   "#FFFFFF"), // 2
-        ("killingspree", "quakesounds.streak.killingspree", "#00FF00"), // 3
-        ("dominating",   "quakesounds.streak.dominating",   "#FFFF00"), // 4
-        ("holyshit",     "quakesounds.streak.holyshit",     "#FF8800"), // 5
-        ("wickedsick",   "quakesounds.streak.wickedsick",   "#FF4400"), // 6
-        ("monsterkill",  "quakesounds.streak.monsterkill",  "#FF0000"), // 7
-        ("unstoppable",  "quakesounds.streak.unstoppable",  "#FF00FF"), // 8
-        ("godlike",      "quakesounds.streak.godlike",      "#FF0000"), // 9
-    ];
+    // Killstreak ladder (kills without dying, persists across rounds). Fires when the streak
+    // EQUALS a tier. Sound pack key == soundevent local name (quake.<key>).
+    private static readonly Dictionary<int, string> KillstreakTiers = new()
+    {
+        [4]  = "dominating",   [6]  = "rampage",       [8]  = "killingspree",
+        [10] = "monsterkill",  [14] = "unstoppable",   [16] = "ultrakill",
+        [18] = "godlike",      [20] = "wickedsick",    [22] = "impressive",
+        [24] = "ludicrouskill",[26] = "holyshit",      [30] = "massacre",
+        [35] = "maniac",       [40] = "killingmachine",[45] = "ownage",
+        [50] = "unreal",       [60] = "flawlessvictory",
+    };
 
-    // Rapid multi-kill key mapping: rapid count -> sound pack key and locale info
-    private static readonly (string key, string localeKey, string color)[] RapidMap =
-    [
-        ("", "", ""),                                                           // 0
-        ("", "", ""),                                                           // 1
-        ("", "", ""),                                                           // 2
-        ("triplekill",  "quakesounds.rapid.triplekill",  "#00FFFF"), // 3
-        ("quadrakill",  "quakesounds.rapid.quadrakill",  "#FF00FF"), // 4
-        ("pentakill",   "quakesounds.rapid.pentakill",   "#FFD700"), // 5
-    ];
+    // Combo ladder (rapid multikill, expires on the rapid window). 7+ = comboking (cap).
+    private static readonly Dictionary<int, string> ComboTiers = new()
+    {
+        [2] = "doublekill", [3] = "triplekill", [4] = "multikill",
+        [5] = "megakill",   [6] = "hexakill",   [7] = "comboking",
+    };
+
+    // Headshot ladder (consecutive headshot kills in a life). Milestones; otherwise base headshot.
+    private static readonly Dictionary<int, string> HeadshotTiers = new()
+    {
+        [3] = "headhunter", [5] = "eagleeye", [7] = "bullseye", [9] = "assassin", [11] = "outstanding",
+    };
 
     public QuakeSoundsModule(InterfaceBridge bridge, ILogger<QuakeSoundsModule> logger, SoundPackManager soundPackManager)
     {
@@ -110,8 +109,9 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _bridge.ModSharp.InstallGameListener(this);
         _bridge.ClientManager.InstallClientListener(this);
 
-        _playerKilledForward = OnPlayerKilledPost;
-        _bridge.HookManager.PlayerKilledPost.InstallForward(_playerKilledForward);
+        // Hook player_death (richer than the killed forward: gives Weapon, Headshot, Revenge).
+        _bridge.EventManager.InstallEventListener(this);
+        _bridge.EventManager.HookEvent("player_death");
 
         _bridge.ClientManager.InstallCommandCallback("quakemute", OnQuakeMuteCommand);
         _bridge.ClientManager.InstallCommandCallback("quakepack", OnQuakePackCommand);
@@ -122,7 +122,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         return true;
     }
 
-    public void OnPostInit(ServiceProvider provider)
+    public void OnAllModulesLoaded(ServiceProvider provider)
     {
         _clientPreference = _bridge.GetClientPreference();
         _localizerManager = _bridge.GetLocalizerManager();
@@ -139,9 +139,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     {
         _bridge.ModSharp.RemoveGameListener(this);
         _bridge.ClientManager.RemoveClientListener(this);
-
-        if (_playerKilledForward is not null)
-            _bridge.HookManager.PlayerKilledPost.RemoveForward(_playerKilledForward);
+        _bridge.EventManager.RemoveEventListener(this);
 
         _bridge.ClientManager.RemoveCommandCallback("quakemute", OnQuakeMuteCommand);
         _bridge.ClientManager.RemoveCommandCallback("quakepack", OnQuakePackCommand);
@@ -150,7 +148,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
         Array.Clear(_killStreaks);
         Array.Clear(_lastKillTime);
-        Array.Clear(_rapidKills);
+        Array.Clear(_comboCount);
+        Array.Clear(_headshotStreak);
         Array.Clear(_muteCache);
         Array.Clear(_volumeCache);
     }
@@ -162,10 +161,18 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     public void OnRoundRestarted()
     {
-        Array.Clear(_killStreaks);
+        // Killstreak + headshot streak PERSIST across rounds (reset only on death).
+        // Combo is short-fuse, and first blood resets for the new round.
         Array.Clear(_lastKillTime);
-        Array.Clear(_rapidKills);
+        Array.Clear(_comboCount);
         _firstBloodOccurred = false;
+
+        // Round-start announce ("prepare").
+        if (_cvEnabled is { } cv && !cv.GetBool())
+            return;
+        if (_cvEnableDuringWarmup is { } wc && !wc.GetBool() && _bridge.GameRules.IsWarmupPeriod)
+            return;
+        PlaySoundToAll("prepare");
     }
 
     #endregion
@@ -179,9 +186,10 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     {
         if (client.IsFakeClient) return;
 
-        _killStreaks[client.Slot]   = 0;
-        _lastKillTime[client.Slot] = 0;
-        _rapidKills[client.Slot]   = 0;
+        _killStreaks[client.Slot]    = 0;
+        _lastKillTime[client.Slot]   = 0;
+        _comboCount[client.Slot]     = 0;
+        _headshotStreak[client.Slot] = 0;
         LoadMutePreference(client);
         LoadVolumePreference(client);
         _soundPackManager.LoadPlayerPack(client);
@@ -189,11 +197,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     public void OnClientDisconnected(IGameClient client, NetworkDisconnectionReason reason)
     {
-        _killStreaks[client.Slot]   = 0;
-        _lastKillTime[client.Slot] = 0;
-        _rapidKills[client.Slot]   = 0;
-        _muteCache[client.Slot]    = null;
-        _volumeCache[client.Slot]  = null;
+        _killStreaks[client.Slot]    = 0;
+        _lastKillTime[client.Slot]   = 0;
+        _comboCount[client.Slot]     = 0;
+        _headshotStreak[client.Slot] = 0;
+        _muteCache[client.Slot]      = null;
+        _volumeCache[client.Slot]    = null;
         _soundPackManager.ClearPlayerCache(client.Slot);
     }
 
@@ -201,104 +210,110 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     #region Kill Handling
 
-    private void OnPlayerKilledPost(IPlayerKilledForwardParams @params)
+    // ===== IEventListener =====
+
+    int IEventListener.ListenerPriority => 0;
+    int IEventListener.ListenerVersion  => IEventListener.ApiVersion;
+
+    public void FireGameEvent(IGameEvent @event)
+    {
+        if (@event is IEventPlayerDeath death)
+            HandlePlayerDeath(death);
+    }
+
+    private void HandlePlayerDeath(IEventPlayerDeath death)
     {
         if (_cvEnabled is { } cv && !cv.GetBool())
             return;
-
         if (_cvEnableDuringWarmup is { } wc && !wc.GetBool() && _bridge.GameRules.IsWarmupPeriod)
             return;
 
-        var victimClient = @params.Client;
-        if (victimClient is not { IsInGame: true })
+        var victim   = death.VictimController;
+        var attacker = death.KillerController;
+        if (victim is null)
             return;
 
-        // Reset victim streak on death
-        if (_cvResetOnDeath is { } rd && rd.GetBool())
+        var victimSlot = (int) victim.PlayerSlot.AsPrimitive();
+
+        // Any death resets the victim's streak/combo/headshot counters.
+        _killStreaks[victimSlot]    = 0;
+        _comboCount[victimSlot]     = 0;
+        _headshotStreak[victimSlot] = 0;
+
+        // Suicide / world death (no attacker or self).
+        if (attacker is null || attacker.PlayerSlot == victim.PlayerSlot)
         {
-            _killStreaks[victimClient.Slot]  = 0;
-            _rapidKills[victimClient.Slot]   = 0;
+            PlaySoundToAll("pancake");
+            return;
         }
 
-        var attackerSlot = @params.AttackerPlayerSlot;
-        if (attackerSlot < 0 || attackerSlot == victimClient.Slot)
+        // Team kill — announce, don't reward a streak.
+        if (attacker.Team == victim.Team)
+        {
+            PlaySoundToAll("teamkiller");
             return;
+        }
 
-        var killerClient = _bridge.ClientManager.GetGameClient(new PlayerSlot((byte)attackerSlot));
+        var killerClient = attacker.GetGameClient();
         if (killerClient is not { IsInGame: true })
             return;
 
-        var killerController = killerClient.GetPlayerController();
-        if (killerController is null)
-            return;
+        var slot = (int) attacker.PlayerSlot.AsPrimitive();
+        var now  = _bridge.ModSharp.EngineTime();
 
-        var killerName = killerController.PlayerName ?? $"Player {attackerSlot}";
-        var now = _bridge.ModSharp.EngineTime();
-
-        // Increment streak
-        _killStreaks[attackerSlot]++;
-        var kills = _killStreaks[attackerSlot];
-
-        // Track rapid kills (kills within time window)
+        // Persistent killstreak + short-fuse combo.
+        _killStreaks[slot]++;
         var rapidWindow = _cvRapidKillWindow?.GetFloat() ?? 4f;
-        if (now - _lastKillTime[attackerSlot] <= rapidWindow)
-            _rapidKills[attackerSlot]++;
-        else
-            _rapidKills[attackerSlot] = 1;
+        _comboCount[slot] = (now - _lastKillTime[slot] <= rapidWindow) ? _comboCount[slot] + 1 : 1;
+        _lastKillTime[slot] = now;
 
-        _lastKillTime[attackerSlot] = now;
+        // Consecutive-headshot streak (broken by a non-headshot kill).
+        _headshotStreak[slot] = death.Headshot ? _headshotStreak[slot] + 1 : 0;
 
-        var soundPlayed = false;
+        // ── Primary announcement (one sound, to everyone) by priority ──
+        var streaksEnabled = _cvEnableKillStreaks is not { } ks || ks.GetBool();
 
-        // First blood (highest priority)
-        if (!_firstBloodOccurred && _cvEnableFirstBlood is { } fb && fb.GetBool())
+        if (!_firstBloodOccurred && (_cvEnableFirstBlood is not { } fb || fb.GetBool()))
         {
             _firstBloodOccurred = true;
             PlaySoundToAll("firstblood");
-            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.firstblood", "#FF0000");
-            soundPlayed = true;
         }
-
-        // Rapid multi-kill (triple/quadra/penta -- overrides streak sound)
-        if (!soundPlayed && _rapidKills[attackerSlot] >= 3 && _cvEnableKillStreaks is { } rk && rk.GetBool())
+        else if (IsKnife(death.Weapon))
         {
-            var rapidIdx = Math.Min(_rapidKills[attackerSlot], 5);
-            var (rapidKey, rapidLocale, rapidColor) = RapidMap[rapidIdx];
-
-            if (!string.IsNullOrEmpty(rapidKey))
-            {
-                PlaySoundToAll(rapidKey);
-
-                if (_cvEnableCenterMsg is { } cm && cm.GetBool())
-                    ShowLocalizedCenterMessageToAll(killerName, rapidLocale, rapidColor);
-
-                soundPlayed = true;
-            }
+            PlaySoundToAll("humiliation");
         }
-
-        // Kill streak (2-9+)
-        if (!soundPlayed && _cvEnableKillStreaks is { } ks && ks.GetBool())
+        else if (IsGrenade(death.Weapon))
         {
-            var idx = Math.Min(kills, 9);
-            if (idx >= 2)
-            {
-                var (streakKey, localeKey, color) = StreakMap[idx];
-                PlaySoundToAll(streakKey);
-
-                if (_cvEnableCenterMsg is { } cm && cm.GetBool())
-                    ShowLocalizedCenterMessageToAll(killerName, localeKey, color);
-
-                soundPlayed = true;
-            }
+            PlaySoundToAll("excellent");
+        }
+        else if (streaksEnabled && ComboTiers.TryGetValue(System.Math.Min(_comboCount[slot], 7), out var comboKey))
+        {
+            PlaySoundToAll(comboKey);
+        }
+        else if (streaksEnabled && KillstreakTiers.TryGetValue(_killStreaks[slot], out var streakKey))
+        {
+            PlaySoundToAll(streakKey);
         }
 
-        // Headshot (killer only, independent of other sounds)
-        var isHeadshot = @params.HitGroup == HitGroupType.Head
-                         || (@params.DamageType & DamageFlagBits.Headshot) != 0;
-
-        if (isHeadshot && _cvEnableHeadshot is { } hs && hs.GetBool())
-            PlaySoundToPlayer(killerClient, "headshot");
+        // ── Headshot feedback (separate channel) ──
+        if (death.Headshot && (_cvEnableHeadshot is not { } hs || hs.GetBool()))
+        {
+            if (HeadshotTiers.TryGetValue(_headshotStreak[slot], out var hsKey))
+                PlaySoundToAll(hsKey);              // milestone (headhunter/eagleeye/…): announce
+            else
+                PlaySoundToPlayer(killerClient, "headshot"); // base ding to the shooter
+        }
     }
+
+    private static bool IsKnife(string weapon)
+        => weapon.Contains("knife", StringComparison.OrdinalIgnoreCase)
+           || weapon.Contains("bayonet", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsGrenade(string weapon)
+        => weapon.Contains("hegrenade", StringComparison.OrdinalIgnoreCase)
+           || weapon.Contains("molotov",  StringComparison.OrdinalIgnoreCase)
+           || weapon.Contains("inferno",  StringComparison.OrdinalIgnoreCase)
+           || weapon.Contains("incgrenade", StringComparison.OrdinalIgnoreCase);
 
     #endregion
 
