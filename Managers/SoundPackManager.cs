@@ -15,7 +15,15 @@ internal sealed class SoundPackManager
     private List<SoundPack> _packs = [];
     private SoundPack       _defaultPack = new() { Id = "default", Name = "Default" };
 
+    private List<string> _precacheFiles = [];
+
+    // Where the quake.* soundevents live in the mounted workshop addon (cstema assets).
+    private const string DefaultSoundEventFile = "soundevents/soundevents_general.vsndevts";
+
     private const string PackCookieKey = "quakesounds_pack";
+
+    /// <summary>Soundevent files to precache (resolved from config, never empty after LoadPacks).</summary>
+    public IReadOnlyList<string> PrecacheFiles => _precacheFiles;
 
     // Per-player selected pack id cache (slot-indexed)
     private readonly string?[] _packCache = new string?[64];
@@ -28,11 +36,11 @@ internal sealed class SoundPackManager
 
     public void LoadPacks(string sharpPath)
     {
-        var configPath = Path.Combine(sharpPath, "configs", "soundpacks.json");
+        var configPath = Path.Combine(sharpPath, "configs", "quakesounds.json");
 
         if (!File.Exists(configPath))
         {
-            _logger.LogWarning("[QuakeSounds] soundpacks.json not found at {Path}, creating default", configPath);
+            _logger.LogWarning("[QuakeSounds] quakesounds.json not found at {Path}, creating default", configPath);
             CreateDefaultConfig(configPath);
         }
 
@@ -51,10 +59,16 @@ internal sealed class SoundPackManager
             {
                 _logger.LogWarning("[QuakeSounds] No packs found in config, using built-in default");
             }
+
+            // Resolve precache list; fall back to the default soundevent file when omitted so an
+            // older config (no precacheFiles key) still registers the quake.* events.
+            _precacheFiles = config?.PrecacheFiles is { Count: > 0 }
+                ? config.PrecacheFiles.Where(f => !string.IsNullOrWhiteSpace(f)).ToList()
+                : [DefaultSoundEventFile];
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[QuakeSounds] Failed to load soundpacks.json");
+            _logger.LogError(ex, "[QuakeSounds] Failed to load quakesounds.json");
         }
     }
 
@@ -140,6 +154,7 @@ internal sealed class SoundPackManager
 
         var defaultConfig = new SoundPackConfig
         {
+            PrecacheFiles = [DefaultSoundEventFile],
             Packs =
             [
                 new SoundPack

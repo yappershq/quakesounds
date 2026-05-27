@@ -1,4 +1,7 @@
 {
+  "precacheFiles": [
+    "soundevents/soundevents_general.vsndevts"
+  ],
   "packs": [
     {
       "id": "default",

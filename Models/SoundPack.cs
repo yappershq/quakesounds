@@ -26,4 +26,11 @@ internal sealed class SoundPackConfig
 {
     [JsonPropertyName("packs")]
     public List<SoundPack> Packs { get; set; } = [];
+
+    /// <summary>
+    /// Soundevent (.vsndevts) files to precache so the configured soundevents are playable.
+    /// Without this the engine never registers the events and <c>EmitSoundClient</c> is silent.
+    /// </summary>
+    [JsonPropertyName("precacheFiles")]
+    public List<string> PrecacheFiles { get; set; } = [];
 }

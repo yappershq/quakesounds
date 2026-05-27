@@ -159,6 +159,25 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     public int ListenerPriority => 0;
     public int ListenerVersion  => IGameListener.ApiVersion;
 
+    void IGameListener.OnResourcePrecache()
+    {
+        // Register the soundevent (.vsndevts) files so quake.* events are playable. Without this
+        // EmitSoundClient resolves nothing and is silent. Guard each so one bad/missing entry
+        // can't abort precache. Missing/unmounted files no-op silently engine-side.
+        foreach (var file in _soundPackManager.PrecacheFiles)
+        {
+            try
+            {
+                _bridge.ModSharp.PrecacheResource(file);
+                _logger.LogInformation("[QuakeSounds] Precached soundevent file {File}", file);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[QuakeSounds] Failed to precache {File}", file);
+            }
+        }
+    }
+
     public void OnRoundRestarted()
     {
         // Killstreak + headshot streak PERSIST across rounds (reset only on death).
