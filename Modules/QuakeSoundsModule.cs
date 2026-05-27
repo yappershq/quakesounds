@@ -264,8 +264,11 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
         var victimSlot = (int) victim.PlayerSlot.AsPrimitive();
 
-        // Any death resets the victim's streak/combo/headshot counters.
-        _killStreaks[victimSlot]    = 0;
+        // Death resets the victim's counters. Killstreak (dominating…flawlessvictory) PERSISTS
+        // across rounds and only dies here — gated on qs_reset_on_death so a server can opt to
+        // keep streaks through death too. Combo/headshot streaks always reset (short-fuse).
+        if (_cvResetOnDeath is not { } rod || rod.GetBool())
+            _killStreaks[victimSlot] = 0;
         _comboCount[victimSlot]     = 0;
         _headshotStreak[victimSlot] = 0;
 
