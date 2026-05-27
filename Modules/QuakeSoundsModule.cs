@@ -29,6 +29,14 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private readonly int[]    _headshotStreak = new int[64]; // consecutive headshot kills in a life
     private bool _firstBloodOccurred;
 
+    // Sound coalescing: many categories (combo + killstreak + headshot) and near-simultaneous
+    // kills can all want to play in the same instant → overlapping cacophony. Buffer candidates
+    // for a short window and play only the single highest-priority winner.
+    private int          _pendingPriority = int.MinValue;
+    private string?      _pendingSoundKey;
+    private IGameClient? _pendingClient;   // null = announce to everyone; else personal
+    private bool         _pendingScheduled;
+
     // Per-player volume (slot-indexed), null = use server default
     private readonly float?[] _volumeCache = new float?[64];
     private const string VolumeCookieKey = "quakesounds_volume";
@@ -43,6 +51,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     private IConVar? _cvResetOnDeath;
     private IConVar? _cvRapidKillWindow;
     private IConVar? _cvVolume;
+    private IConVar? _cvSoundDebounce;
 
     // Cached module interfaces
     private IClientPreference? _clientPreference;
@@ -105,6 +114,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _cvResetOnDeath       = _bridge.ConVarManager.CreateConVar("qs_reset_on_death",    true,  "Reset streak on death");
         _cvRapidKillWindow    = _bridge.ConVarManager.CreateConVar("qs_rapid_kill_window", 4.0f,  "Time window (seconds) for rapid multi-kills");
         _cvVolume             = _bridge.ConVarManager.CreateConVar("qs_volume",            1.0f,  "Sound volume (0.0-1.0) — server default");
+        _cvSoundDebounce      = _bridge.ConVarManager.CreateConVar("qs_sound_debounce",    0.1f,  "Window (seconds) to coalesce overlapping sounds; only the highest-priority one plays");
 
         _bridge.ModSharp.InstallGameListener(this);
         _bridge.ClientManager.InstallClientListener(this);
@@ -262,14 +272,14 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         // Suicide / world death (no attacker or self).
         if (attacker is null || attacker.PlayerSlot == victim.PlayerSlot)
         {
-            PlaySoundToAll("pancake");
+            QueueSound("pancake", PrioPancake);
             return;
         }
 
         // Team kill — announce, don't reward a streak.
         if (attacker.Team == victim.Team)
         {
-            PlaySoundToAll("teamkiller");
+            QueueSound("teamkiller", PrioTeamkill);
             return;
         }
 
@@ -289,40 +299,54 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         // Consecutive-headshot streak (broken by a non-headshot kill).
         _headshotStreak[slot] = death.Headshot ? _headshotStreak[slot] + 1 : 0;
 
-        // ── Primary announcement (one sound, to everyone) by priority ──
+        // ── Candidates compete by priority; the 0.1s window flushes only the winner ──
         var streaksEnabled = _cvEnableKillStreaks is not { } ks || ks.GetBool();
 
+        // Primary announcement — mutually exclusive, like the original if/else chain.
         if (!_firstBloodOccurred && (_cvEnableFirstBlood is not { } fb || fb.GetBool()))
         {
             _firstBloodOccurred = true;
-            PlaySoundToAll("firstblood");
+            QueueSound("firstblood", PrioFirstBlood);
         }
         else if (IsKnife(death.Weapon))
         {
-            PlaySoundToAll("humiliation");
+            QueueSound("humiliation", PrioHumiliation);
         }
         else if (IsGrenade(death.Weapon))
         {
-            PlaySoundToAll("excellent");
+            QueueSound("excellent", PrioExcellent);
         }
         else if (streaksEnabled && ComboTiers.TryGetValue(System.Math.Min(_comboCount[slot], 7), out var comboKey))
         {
-            PlaySoundToAll(comboKey);
+            QueueSound(comboKey, PrioComboBase + _comboCount[slot]);
         }
         else if (streaksEnabled && KillstreakTiers.TryGetValue(_killStreaks[slot], out var streakKey))
         {
-            PlaySoundToAll(streakKey);
+            QueueSound(streakKey, PrioKillstreakBase + _killStreaks[slot]);
         }
 
-        // ── Headshot feedback (separate channel) ──
+        // ── Headshot feedback (also competes) ──
         if (death.Headshot && (_cvEnableHeadshot is not { } hs || hs.GetBool()))
         {
             if (HeadshotTiers.TryGetValue(_headshotStreak[slot], out var hsKey))
-                PlaySoundToAll(hsKey);              // milestone (headhunter/eagleeye/…): announce
+                QueueSound(hsKey, PrioHeadshotBase + _headshotStreak[slot]);   // milestone: announce to all
             else
-                PlaySoundToPlayer(killerClient, "headshot"); // base ding to the shooter
+                QueueSound("headshot", PrioHeadshotDing, killerClient);        // base ding to the shooter only
         }
     }
+
+    // Sound priorities — higher wins when several land in the same coalescing window. Killstreak
+    // magnitude is meant to dominate (a 60-streak flawlessvictory beats anything); the base
+    // personal headshot ding is the quietest, so any real announcement overrides it.
+    private const int PrioHeadshotDing   = 5;
+    private const int PrioPancake        = 8;
+    private const int PrioTeamkill       = 8;
+    private const int PrioExcellent      = 12;
+    private const int PrioHumiliation    = 14;
+    private const int PrioComboBase      = 20;  // + comboCount  (double=22 … comboking=27)
+    private const int PrioHeadshotBase   = 28;  // + hsStreak    (headhunter=31 … outstanding=39)
+    private const int PrioFirstBlood     = 50;
+    private const int PrioKillstreakBase = 40;  // + killStreak  (dominating=44 … flawlessvictory=100)
 
     private static bool IsKnife(string weapon)
         => weapon.Contains("knife", StringComparison.OrdinalIgnoreCase)
@@ -582,6 +606,50 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     #endregion
 
     #region Sound Playback
+
+    /// <summary>
+    /// Buffer a sound candidate. Within a short window (<c>qs_sound_debounce</c>) only the single
+    /// highest-priority candidate is played, killing the overlap when several sounds land at once.
+    /// </summary>
+    /// <param name="personal">null = announce to everyone; otherwise play only to this client.</param>
+    private void QueueSound(string soundKey, int priority, IGameClient? personal = null)
+    {
+        if (string.IsNullOrEmpty(soundKey))
+            return;
+
+        if (priority > _pendingPriority)
+        {
+            _pendingPriority = priority;
+            _pendingSoundKey = soundKey;
+            _pendingClient   = personal;
+        }
+
+        if (_pendingScheduled)
+            return;
+
+        _pendingScheduled = true;
+        var delay = System.Math.Max(0f, _cvSoundDebounce?.GetFloat() ?? 0.1f);
+        _bridge.ModSharp.PushTimer(FlushPendingSound, delay);
+    }
+
+    private void FlushPendingSound()
+    {
+        var key    = _pendingSoundKey;
+        var client = _pendingClient;
+
+        _pendingPriority  = int.MinValue;
+        _pendingSoundKey  = null;
+        _pendingClient    = null;
+        _pendingScheduled = false;
+
+        if (string.IsNullOrEmpty(key))
+            return;
+
+        if (client is null)
+            PlaySoundToAll(key);
+        else if (client.IsInGame)
+            PlaySoundToPlayer(client, key);
+    }
 
     private void PlaySoundToAll(string soundKey)
     {
