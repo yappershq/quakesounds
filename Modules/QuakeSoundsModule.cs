@@ -316,8 +316,11 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         {
             QueueSound("excellent", PrioExcellent);
         }
-        else if (streaksEnabled && ComboTiers.TryGetValue(System.Math.Min(_comboCount[slot], 7), out var comboKey))
+        else if (streaksEnabled && ComboTiers.TryGetValue(_comboCount[slot], out var comboKey))
         {
+            // Fire only at the exact combo tier (2..7). Past comboking (7) the combo no longer
+            // matches, so further rapid kills fall through to the killstreak ladder below instead
+            // of re-announcing comboking on every kill.
             QueueSound(comboKey, PrioComboBase + _comboCount[slot]);
         }
         else if (streaksEnabled && KillstreakTiers.TryGetValue(_killStreaks[slot], out var streakKey))
