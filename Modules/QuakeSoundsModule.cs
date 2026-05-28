@@ -392,8 +392,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
                 client =>
                 {
                     var pack = _soundPackManager.GetPlayerPack(client.Slot);
-                    var label = _localizerManager?.For(client).Text("quakesounds.menu.soundpack") ?? "Sound Pack: {0}";
-                    return string.Format(label, pack.Name);
+                    return _localizerManager?.For(client).Text("quakesounds.menu.soundpack", pack.Name)
+                           ?? $"Sound Pack: {pack.Name}";
                 },
                 BuildPackSubMenu)
             .SubMenu(
@@ -401,19 +401,19 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
                 {
                     var vol = GetPlayerVolume(client.Slot);
                     var pct = $"{(int)(vol * 100)}%";
-                    var label = _localizerManager?.For(client).Text("quakesounds.menu.volume") ?? "Volume: {0}";
-                    return string.Format(label, pct);
+                    return _localizerManager?.For(client).Text("quakesounds.menu.volume", pct)
+                           ?? $"Volume: {pct}";
                 },
                 BuildVolumeSubMenu)
             .Item(
                 client =>
                 {
                     var muted = IsPlayerMuted(client.Slot);
-                    var label = _localizerManager?.For(client).Text("quakesounds.menu.mute") ?? "Mute: {0}";
                     var state = muted
                         ? (_localizerManager?.For(client).Text("quakesounds.menu.on") ?? "ON")
                         : (_localizerManager?.For(client).Text("quakesounds.menu.off") ?? "OFF");
-                    return string.Format(label, state);
+                    return _localizerManager?.For(client).Text("quakesounds.menu.mute", state)
+                           ?? $"Mute: {state}";
                 },
                 ctrl =>
                 {
@@ -443,9 +443,9 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             {
                 _soundPackManager.SetPlayerPack(ctrl.Client, packId);
 
-                var selectedMsg = _localizerManager?.For(ctrl.Client).Text("quakesounds.pack.selected")
-                                  ?? "Sound pack changed to: {0}";
-                ctrl.Client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(selectedMsg, packName)}");
+                var selectedMsg = _localizerManager?.For(ctrl.Client).Text("quakesounds.pack.selected", packName)
+                                  ?? $"Sound pack changed to: {packName}";
+                ctrl.Client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {selectedMsg}");
 
                 ctrl.GoBack();
             });
@@ -474,9 +474,9 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             {
                 SetPlayerVolume(ctrl.Client, presetValue);
 
-                var volMsg = _localizerManager?.For(ctrl.Client).Text("quakesounds.volume.changed")
-                             ?? "Volume set to {0}";
-                ctrl.Client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(volMsg, presetLabel)}");
+                var volMsg = _localizerManager?.For(ctrl.Client).Text("quakesounds.volume.changed", presetLabel)
+                             ?? $"Volume set to {presetLabel}";
+                ctrl.Client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {volMsg}");
 
                 ctrl.GoBack();
             });
@@ -513,17 +513,17 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (nextPack.Id == currentPack.Id && available.Count == 1)
         {
             // Only one pack available, show current
-            var currentMsg = _localizerManager?.For(client).Text("quakesounds.pack.current")
-                             ?? "Current sound pack: {0}";
-            client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(currentMsg, currentPack.Name)}");
+            var currentMsg = _localizerManager?.For(client).Text("quakesounds.pack.current", currentPack.Name)
+                             ?? $"Current sound pack: {currentPack.Name}";
+            client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {currentMsg}");
         }
         else
         {
             _soundPackManager.SetPlayerPack(client, nextPack.Id);
 
-            var selectedMsg = _localizerManager?.For(client).Text("quakesounds.pack.selected")
-                              ?? "Sound pack changed to: {0}";
-            client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {string.Format(selectedMsg, nextPack.Name)}");
+            var selectedMsg = _localizerManager?.For(client).Text("quakesounds.pack.selected", nextPack.Name)
+                              ?? $"Sound pack changed to: {nextPack.Name}";
+            client.Print(HudPrintChannel.Chat, $" [QuakeSounds] {selectedMsg}");
         }
 
         return ECommandAction.Handled;
