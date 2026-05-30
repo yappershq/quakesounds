@@ -308,35 +308,47 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         // ── Candidates compete by priority; the 0.1s window flushes only the winner ──
         var streaksEnabled = _cvEnableKillStreaks is not { } ks || ks.GetBool();
 
+        var killerName = killerClient.Name;
+
         // Primary announcement — mutually exclusive, like the original if/else chain.
         if (!_firstBloodOccurred && (_cvEnableFirstBlood is not { } fb || fb.GetBool()))
         {
             _firstBloodOccurred = true;
             QueueSound("firstblood", PrioFirstBlood, invoker: killerClient);
+            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.firstblood", "#FF0000");
         }
         else if (IsKnife(death.Weapon))
         {
             QueueSound("humiliation", PrioHumiliation, invoker: killerClient);
+            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.humiliation", "#A020F0");
         }
         else if (IsGrenade(death.Weapon))
         {
             QueueSound("excellent", PrioExcellent, invoker: killerClient);
+            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.excellent", "#00FFFF");
         }
         else if (streaksEnabled && ComboTiers.TryGetValue(_comboCount[slot], out var comboKey))
         {
             QueueSound(comboKey, PrioComboBase + _comboCount[slot], invoker: killerClient);
+            ShowLocalizedCenterMessageToAll(killerName, $"quakesounds.streak.{comboKey}", "#FFA500");
         }
         else if (streaksEnabled && KillstreakTiers.TryGetValue(_killStreaks[slot], out var streakKey))
         {
             QueueSound(streakKey, PrioKillstreakBase + _killStreaks[slot], invoker: killerClient);
+            ShowLocalizedCenterMessageToAll(killerName, $"quakesounds.streak.{streakKey}", "#FF8C00");
         }
 
         if (death.Headshot && (_cvEnableHeadshot is not { } hs || hs.GetBool()))
         {
             if (HeadshotTiers.TryGetValue(_headshotStreak[slot], out var hsKey))
+            {
                 QueueSound(hsKey, PrioHeadshotBase + _headshotStreak[slot], invoker: killerClient);
+                ShowLocalizedCenterMessageToAll(killerName, $"quakesounds.streak.{hsKey}", "#FF4500");
+            }
             else
+            {
                 QueueSound("headshot", PrioHeadshotDing, invoker: killerClient, personal: killerClient);
+            }
         }
     }
 
