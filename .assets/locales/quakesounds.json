@@ -141,5 +141,31 @@
     "en-US": "Volume",
     "ru-RU": "Громкость",
     "de-DE": "Lautstärke"
-  }
+  },
+
+  "quakesounds.streak.humiliation": { "en-US": "HUMILIATION" },
+  "quakesounds.streak.excellent":   { "en-US": "EXCELLENT" },
+
+  "quakesounds.streak.triplekill":  { "en-US": "TRIPLE KILL" },
+  "quakesounds.streak.multikill":   { "en-US": "MULTI KILL" },
+  "quakesounds.streak.megakill":    { "en-US": "MEGA KILL" },
+  "quakesounds.streak.hexakill":    { "en-US": "HEXA KILL" },
+  "quakesounds.streak.comboking":   { "en-US": "COMBO KING" },
+
+  "quakesounds.streak.rampage":         { "en-US": "RAMPAGE" },
+  "quakesounds.streak.ultrakill":       { "en-US": "ULTRA KILL" },
+  "quakesounds.streak.impressive":      { "en-US": "IMPRESSIVE" },
+  "quakesounds.streak.ludicrouskill":   { "en-US": "LUDICROUS KILL" },
+  "quakesounds.streak.massacre":        { "en-US": "MASSACRE" },
+  "quakesounds.streak.maniac":          { "en-US": "MANIAC" },
+  "quakesounds.streak.killingmachine":  { "en-US": "KILLING MACHINE" },
+  "quakesounds.streak.ownage":          { "en-US": "OWNAGE" },
+  "quakesounds.streak.unreal":          { "en-US": "UNREAL" },
+  "quakesounds.streak.flawlessvictory": { "en-US": "FLAWLESS VICTORY" },
+
+  "quakesounds.streak.headhunter":  { "en-US": "HEADHUNTER" },
+  "quakesounds.streak.eagleeye":    { "en-US": "EAGLE EYE" },
+  "quakesounds.streak.bullseye":    { "en-US": "BULLSEYE" },
+  "quakesounds.streak.assassin":    { "en-US": "ASSASSIN" },
+  "quakesounds.streak.outstanding": { "en-US": "OUTSTANDING" }
 }
