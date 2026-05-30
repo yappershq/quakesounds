@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QuakeSounds.Managers;
+using QuakeSounds.Models;
 using Sharp.Modules.ClientPreferences.Shared;
 using Sharp.Modules.LocalizerManager.Shared;
 using Sharp.Modules.MenuManager.Shared;
@@ -34,7 +35,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
     // for a short window and play only the single highest-priority winner.
     private int          _pendingPriority = int.MinValue;
     private string?      _pendingSoundKey;
-    private IGameClient? _pendingClient;   // null = announce to everyone; else personal
+    private IGameClient? _pendingClient;   // null = announce to everyone; else personal listener
+    private IGameClient? _pendingInvoker;  // whose soundpack to resolve from (e.g. the killer); null = default pack
     private bool         _pendingScheduled;
 
     // Per-player volume (slot-indexed), null = use server default
@@ -201,7 +203,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             return;
         if (_cvEnableDuringWarmup is { } wc && !wc.GetBool() && _bridge.GameRules.IsWarmupPeriod)
             return;
-        PlaySoundToAll("prepare");
+        PlaySoundToAll("prepare", null);
     }
 
     #endregion
@@ -272,23 +274,24 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         _comboCount[victimSlot]     = 0;
         _headshotStreak[victimSlot] = 0;
 
-        // Suicide / world death (no attacker or self).
+        // Suicide / world death (no attacker or self). Pack comes from the victim
+        // (they're the only player involved). World deaths fall back to default pack.
         if (attacker is null || attacker.PlayerSlot == victim.PlayerSlot)
         {
-            QueueSound("pancake", PrioPancake);
-            return;
-        }
-
-        // Team kill — announce, don't reward a streak.
-        if (attacker.Team == victim.Team)
-        {
-            QueueSound("teamkiller", PrioTeamkill);
+            QueueSound("pancake", PrioPancake, invoker: victim.GetGameClient());
             return;
         }
 
         var killerClient = attacker.GetGameClient();
         if (killerClient is not { IsInGame: true })
             return;
+
+        // Team kill — announce with killer's pack, don't reward a streak.
+        if (attacker.Team == victim.Team)
+        {
+            QueueSound("teamkiller", PrioTeamkill, invoker: killerClient);
+            return;
+        }
 
         var slot = (int) attacker.PlayerSlot.AsPrimitive();
         var now  = _bridge.ModSharp.EngineTime();
@@ -309,35 +312,31 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (!_firstBloodOccurred && (_cvEnableFirstBlood is not { } fb || fb.GetBool()))
         {
             _firstBloodOccurred = true;
-            QueueSound("firstblood", PrioFirstBlood);
+            QueueSound("firstblood", PrioFirstBlood, invoker: killerClient);
         }
         else if (IsKnife(death.Weapon))
         {
-            QueueSound("humiliation", PrioHumiliation);
+            QueueSound("humiliation", PrioHumiliation, invoker: killerClient);
         }
         else if (IsGrenade(death.Weapon))
         {
-            QueueSound("excellent", PrioExcellent);
+            QueueSound("excellent", PrioExcellent, invoker: killerClient);
         }
         else if (streaksEnabled && ComboTiers.TryGetValue(_comboCount[slot], out var comboKey))
         {
-            // Fire only at the exact combo tier (2..7). Past comboking (7) the combo no longer
-            // matches, so further rapid kills fall through to the killstreak ladder below instead
-            // of re-announcing comboking on every kill.
-            QueueSound(comboKey, PrioComboBase + _comboCount[slot]);
+            QueueSound(comboKey, PrioComboBase + _comboCount[slot], invoker: killerClient);
         }
         else if (streaksEnabled && KillstreakTiers.TryGetValue(_killStreaks[slot], out var streakKey))
         {
-            QueueSound(streakKey, PrioKillstreakBase + _killStreaks[slot]);
+            QueueSound(streakKey, PrioKillstreakBase + _killStreaks[slot], invoker: killerClient);
         }
 
-        // ── Headshot feedback (also competes) ──
         if (death.Headshot && (_cvEnableHeadshot is not { } hs || hs.GetBool()))
         {
             if (HeadshotTiers.TryGetValue(_headshotStreak[slot], out var hsKey))
-                QueueSound(hsKey, PrioHeadshotBase + _headshotStreak[slot]);   // milestone: announce to all
+                QueueSound(hsKey, PrioHeadshotBase + _headshotStreak[slot], invoker: killerClient);
             else
-                QueueSound("headshot", PrioHeadshotDing, killerClient);        // base ding to the shooter only
+                QueueSound("headshot", PrioHeadshotDing, invoker: killerClient, personal: killerClient);
         }
     }
 
@@ -613,12 +612,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     #region Sound Playback
 
-    /// <summary>
-    /// Buffer a sound candidate. Within a short window (<c>qs_sound_debounce</c>) only the single
-    /// highest-priority candidate is played, killing the overlap when several sounds land at once.
-    /// </summary>
-    /// <param name="personal">null = announce to everyone; otherwise play only to this client.</param>
-    private void QueueSound(string soundKey, int priority, IGameClient? personal = null)
+    private void QueueSound(string soundKey, int priority, IGameClient? invoker = null, IGameClient? personal = null)
     {
         if (string.IsNullOrEmpty(soundKey))
             return;
@@ -628,6 +622,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             _pendingPriority = priority;
             _pendingSoundKey = soundKey;
             _pendingClient   = personal;
+            _pendingInvoker  = invoker;
         }
 
         if (_pendingScheduled)
@@ -640,25 +635,36 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
     private void FlushPendingSound()
     {
-        var key    = _pendingSoundKey;
-        var client = _pendingClient;
+        var key     = _pendingSoundKey;
+        var client  = _pendingClient;
+        var invoker = _pendingInvoker;
 
         _pendingPriority  = int.MinValue;
         _pendingSoundKey  = null;
         _pendingClient    = null;
+        _pendingInvoker   = null;
         _pendingScheduled = false;
 
         if (string.IsNullOrEmpty(key))
             return;
 
         if (client is null)
-            PlaySoundToAll(key);
+            PlaySoundToAll(key, invoker);
         else if (client.IsInGame)
-            PlaySoundToPlayer(client, key);
+            PlaySoundToPlayer(client, key, invoker);
     }
 
-    private void PlaySoundToAll(string soundKey)
+    private SoundPack ResolvePack(IGameClient? invoker)
+        => invoker is { IsInGame: true }
+            ? _soundPackManager.GetPlayerPack(invoker.Slot)
+            : _soundPackManager.DefaultPack;
+
+    private void PlaySoundToAll(string soundKey, IGameClient? invoker)
     {
+        var soundEvent = ResolvePack(invoker).GetSound(soundKey);
+        if (string.IsNullOrEmpty(soundEvent))
+            return;
+
         foreach (var client in _bridge.ClientManager.GetGameClients(true))
         {
             if (client.IsFakeClient || client.IsHltv)
@@ -670,23 +676,17 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (controller is not { IsValidEntity: true })
                 continue;
 
-            var pack = _soundPackManager.GetPlayerPack(client.Slot);
-            var soundEvent = pack.GetSound(soundKey);
-            if (string.IsNullOrEmpty(soundEvent))
-                continue;
-
             controller.EmitSoundClient(soundEvent, GetPlayerVolume(client.Slot));
         }
     }
 
-    private void PlaySoundToPlayer(IGameClient client, string soundKey)
+    private void PlaySoundToPlayer(IGameClient client, string soundKey, IGameClient? invoker)
     {
         var controller = client.GetPlayerController();
         if (controller is not { IsValidEntity: true })
             return;
 
-        var pack = _soundPackManager.GetPlayerPack(client.Slot);
-        var soundEvent = pack.GetSound(soundKey);
+        var soundEvent = ResolvePack(invoker ?? client).GetSound(soundKey);
         if (string.IsNullOrEmpty(soundEvent))
             return;
 

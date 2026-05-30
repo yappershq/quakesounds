@@ -96,6 +96,8 @@ internal sealed class SoundPackManager
         return result;
     }
 
+    public SoundPack DefaultPack => _defaultPack;
+
     public SoundPack GetPlayerPack(int slot)
     {
         var packId = _packCache[slot];
