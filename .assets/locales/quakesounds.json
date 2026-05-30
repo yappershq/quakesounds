@@ -12,66 +12,42 @@
   "quakesounds.streak_message": {
     "en-US": "{0} — {1}!"
   },
-  "quakesounds.streak.firstblood": {
-    "en-US": "FIRST BLOOD",
-    "ru-RU": "ПЕРВАЯ КРОВЬ",
-    "de-DE": "ERSTES BLUT"
-  },
-  "quakesounds.streak.doublekill": {
-    "en-US": "DOUBLE KILL",
-    "ru-RU": "ДВОЙНОЕ УБИЙСТВО",
-    "de-DE": "DOPPELKILL"
-  },
-  "quakesounds.streak.killingspree": {
-    "en-US": "KILLING SPREE",
-    "ru-RU": "СЕРИЯ УБИЙСТВ",
-    "de-DE": "MORDSERIE"
-  },
-  "quakesounds.streak.dominating": {
-    "en-US": "DOMINATING",
-    "ru-RU": "ДОМИНИРОВАНИЕ",
-    "de-DE": "DOMINIEREND"
-  },
-  "quakesounds.streak.holyshit": {
-    "en-US": "HOLY SHIT",
-    "ru-RU": "НИЧЕГО СЕБЕ",
-    "de-DE": "HEILIGE SCHEISSE"
-  },
-  "quakesounds.streak.wickedsick": {
-    "en-US": "WICKED SICK",
-    "ru-RU": "БЕЗУМИЕ",
-    "de-DE": "WAHNSINNIG"
-  },
-  "quakesounds.streak.monsterkill": {
-    "en-US": "MONSTER KILL",
-    "ru-RU": "МОНСТР-КИЛЛ",
-    "de-DE": "MONSTERKILL"
-  },
-  "quakesounds.streak.unstoppable": {
-    "en-US": "UNSTOPPABLE",
-    "ru-RU": "НЕУДЕРЖИМЫЙ",
-    "de-DE": "UNAUFHALTSAM"
-  },
-  "quakesounds.streak.godlike": {
-    "en-US": "GODLIKE",
-    "ru-RU": "БОГОПОДОБНЫЙ",
-    "de-DE": "GÖTTLICH"
-  },
-  "quakesounds.rapid.triplekill": {
-    "en-US": "TRIPLE KILL",
-    "ru-RU": "ТРОЙНОЕ УБИЙСТВО",
-    "de-DE": "DREIFACHKILL"
-  },
-  "quakesounds.rapid.quadrakill": {
-    "en-US": "QUADRA KILL",
-    "ru-RU": "ЧЕТВЕРНОЕ УБИЙСТВО",
-    "de-DE": "VIERFACHKILL"
-  },
-  "quakesounds.rapid.pentakill": {
-    "en-US": "PENTA KILL",
-    "ru-RU": "ПЯТЕРНОЕ УБИЙСТВО",
-    "de-DE": "FÜNFFACHKILL"
-  },
+
+  "quakesounds.streak.firstblood":  { "en-US": "FIRST BLOOD",          "ru-RU": "ПЕРВАЯ КРОВЬ",         "de-DE": "ERSTES BLUT" },
+  "quakesounds.streak.humiliation": { "en-US": "HUMILIATION (knife)" },
+  "quakesounds.streak.excellent":   { "en-US": "EXCELLENT (grenade)" },
+
+  "quakesounds.streak.doublekill": { "en-US": "DOUBLE KILL (2 rapid)",  "ru-RU": "ДВОЙНОЕ УБИЙСТВО", "de-DE": "DOPPELKILL" },
+  "quakesounds.streak.triplekill": { "en-US": "TRIPLE KILL (3 rapid)" },
+  "quakesounds.streak.multikill":  { "en-US": "MULTI KILL (4 rapid)" },
+  "quakesounds.streak.megakill":   { "en-US": "MEGA KILL (5 rapid)" },
+  "quakesounds.streak.hexakill":   { "en-US": "HEXA KILL (6 rapid)" },
+  "quakesounds.streak.comboking":  { "en-US": "COMBO KING (7 rapid)" },
+
+  "quakesounds.streak.dominating":      { "en-US": "DOMINATING (4-streak)",       "ru-RU": "ДОМИНИРОВАНИЕ",  "de-DE": "DOMINIEREND" },
+  "quakesounds.streak.rampage":         { "en-US": "RAMPAGE (6-streak)" },
+  "quakesounds.streak.killingspree":    { "en-US": "KILLING SPREE (8-streak)",    "ru-RU": "СЕРИЯ УБИЙСТВ",  "de-DE": "MORDSERIE" },
+  "quakesounds.streak.monsterkill":     { "en-US": "MONSTER KILL (10-streak)",    "ru-RU": "МОНСТР-КИЛЛ",    "de-DE": "MONSTERKILL" },
+  "quakesounds.streak.unstoppable":     { "en-US": "UNSTOPPABLE (14-streak)",     "ru-RU": "НЕУДЕРЖИМЫЙ",    "de-DE": "UNAUFHALTSAM" },
+  "quakesounds.streak.ultrakill":       { "en-US": "ULTRA KILL (16-streak)" },
+  "quakesounds.streak.godlike":         { "en-US": "GODLIKE (18-streak)",         "ru-RU": "БОГОПОДОБНЫЙ",   "de-DE": "GÖTTLICH" },
+  "quakesounds.streak.wickedsick":      { "en-US": "WICKED SICK (20-streak)",     "ru-RU": "БЕЗУМИЕ",        "de-DE": "WAHNSINNIG" },
+  "quakesounds.streak.impressive":      { "en-US": "IMPRESSIVE (22-streak)" },
+  "quakesounds.streak.ludicrouskill":   { "en-US": "LUDICROUS KILL (24-streak)" },
+  "quakesounds.streak.holyshit":        { "en-US": "HOLY SHIT (26-streak)",       "ru-RU": "НИЧЕГО СЕБЕ",    "de-DE": "HEILIGE SCHEISSE" },
+  "quakesounds.streak.massacre":        { "en-US": "MASSACRE (30-streak)" },
+  "quakesounds.streak.maniac":          { "en-US": "MANIAC (35-streak)" },
+  "quakesounds.streak.killingmachine":  { "en-US": "KILLING MACHINE (40-streak)" },
+  "quakesounds.streak.ownage":          { "en-US": "OWNAGE (45-streak)" },
+  "quakesounds.streak.unreal":          { "en-US": "UNREAL (50-streak)" },
+  "quakesounds.streak.flawlessvictory": { "en-US": "FLAWLESS VICTORY (60-streak)" },
+
+  "quakesounds.streak.headhunter":  { "en-US": "HEADHUNTER (3 hs)" },
+  "quakesounds.streak.eagleeye":    { "en-US": "EAGLE EYE (5 hs)" },
+  "quakesounds.streak.bullseye":    { "en-US": "BULLSEYE (7 hs)" },
+  "quakesounds.streak.assassin":    { "en-US": "ASSASSIN (9 hs)" },
+  "quakesounds.streak.outstanding": { "en-US": "OUTSTANDING (11 hs)" },
+
   "quakesounds.pack.selected": {
     "en-US": "Sound pack changed to: {0}",
     "ru-RU": "Звуковой набор изменён на: {0}",
@@ -141,31 +117,5 @@
     "en-US": "Volume",
     "ru-RU": "Громкость",
     "de-DE": "Lautstärke"
-  },
-
-  "quakesounds.streak.humiliation": { "en-US": "HUMILIATION" },
-  "quakesounds.streak.excellent":   { "en-US": "EXCELLENT" },
-
-  "quakesounds.streak.triplekill":  { "en-US": "TRIPLE KILL" },
-  "quakesounds.streak.multikill":   { "en-US": "MULTI KILL" },
-  "quakesounds.streak.megakill":    { "en-US": "MEGA KILL" },
-  "quakesounds.streak.hexakill":    { "en-US": "HEXA KILL" },
-  "quakesounds.streak.comboking":   { "en-US": "COMBO KING" },
-
-  "quakesounds.streak.rampage":         { "en-US": "RAMPAGE" },
-  "quakesounds.streak.ultrakill":       { "en-US": "ULTRA KILL" },
-  "quakesounds.streak.impressive":      { "en-US": "IMPRESSIVE" },
-  "quakesounds.streak.ludicrouskill":   { "en-US": "LUDICROUS KILL" },
-  "quakesounds.streak.massacre":        { "en-US": "MASSACRE" },
-  "quakesounds.streak.maniac":          { "en-US": "MANIAC" },
-  "quakesounds.streak.killingmachine":  { "en-US": "KILLING MACHINE" },
-  "quakesounds.streak.ownage":          { "en-US": "OWNAGE" },
-  "quakesounds.streak.unreal":          { "en-US": "UNREAL" },
-  "quakesounds.streak.flawlessvictory": { "en-US": "FLAWLESS VICTORY" },
-
-  "quakesounds.streak.headhunter":  { "en-US": "HEADHUNTER" },
-  "quakesounds.streak.eagleeye":    { "en-US": "EAGLE EYE" },
-  "quakesounds.streak.bullseye":    { "en-US": "BULLSEYE" },
-  "quakesounds.streak.assassin":    { "en-US": "ASSASSIN" },
-  "quakesounds.streak.outstanding": { "en-US": "OUTSTANDING" }
+  }
 }

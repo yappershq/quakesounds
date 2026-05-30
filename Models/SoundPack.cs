@@ -33,4 +33,7 @@ internal sealed class SoundPackConfig
     /// </summary>
     [JsonPropertyName("precacheFiles")]
     public List<string> PrecacheFiles { get; set; } = [];
+
+    [JsonPropertyName("tiers")]
+    public TiersConfig? Tiers { get; set; }
 }

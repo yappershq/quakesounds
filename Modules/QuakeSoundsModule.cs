@@ -73,30 +73,21 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         (0.10f, "10%"),
     ];
 
-    // Killstreak ladder (kills without dying, persists across rounds). Fires when the streak
-    // EQUALS a tier. Sound pack key == soundevent local name (quake.<key>).
-    private static readonly Dictionary<int, string> KillstreakTiers = new()
-    {
-        [4]  = "dominating",   [6]  = "rampage",       [8]  = "killingspree",
-        [10] = "monsterkill",  [14] = "unstoppable",   [16] = "ultrakill",
-        [18] = "godlike",      [20] = "wickedsick",    [22] = "impressive",
-        [24] = "ludicrouskill",[26] = "holyshit",      [30] = "massacre",
-        [35] = "maniac",       [40] = "killingmachine",[45] = "ownage",
-        [50] = "unreal",       [60] = "flawlessvictory",
-    };
+    private Dictionary<int, TierEntry> _killstreakLookup = [];
+    private Dictionary<int, TierEntry> _comboLookup      = [];
+    private Dictionary<int, TierEntry> _headshotLookup   = [];
+    private SpecialTiers _special = new();
 
-    // Combo ladder (rapid multikill, expires on the rapid window). 7+ = comboking (cap).
-    private static readonly Dictionary<int, string> ComboTiers = new()
+    private static Dictionary<int, TierEntry> BuildLookup(List<TierEntry> entries)
     {
-        [2] = "doublekill", [3] = "triplekill", [4] = "multikill",
-        [5] = "megakill",   [6] = "hexakill",   [7] = "comboking",
-    };
-
-    // Headshot ladder (consecutive headshot kills in a life). Milestones; otherwise base headshot.
-    private static readonly Dictionary<int, string> HeadshotTiers = new()
-    {
-        [3] = "headhunter", [5] = "eagleeye", [7] = "bullseye", [9] = "assassin", [11] = "outstanding",
-    };
+        var dict = new Dictionary<int, TierEntry>();
+        foreach (var e in entries)
+        {
+            if (e.Count > 0 && !string.IsNullOrEmpty(e.SoundKey))
+                dict[e.Count] = e;
+        }
+        return dict;
+    }
 
     public QuakeSoundsModule(InterfaceBridge bridge, ILogger<QuakeSoundsModule> logger, SoundPackManager soundPackManager)
     {
@@ -145,6 +136,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
 
         if (_menuManager is null)
             _logger.LogWarning("[QuakeSounds] MenuManager not available — .quake/.qs menu won't work");
+
+        var tiers = _soundPackManager.Tiers;
+        _killstreakLookup = BuildLookup(tiers.Killstreaks);
+        _comboLookup      = BuildLookup(tiers.Combos);
+        _headshotLookup   = BuildLookup(tiers.Headshots);
+        _special          = tiers.Special ?? new();
     }
 
     public void Shutdown()
@@ -203,7 +200,9 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             return;
         if (_cvEnableDuringWarmup is { } wc && !wc.GetBool() && _bridge.GameRules.IsWarmupPeriod)
             return;
-        PlaySoundToAll("prepare", null);
+        var prepareKey = _special.RoundStart?.SoundKey;
+        if (!string.IsNullOrEmpty(prepareKey))
+            PlaySoundToAll(prepareKey, null);
     }
 
     #endregion
@@ -278,7 +277,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         // (they're the only player involved). World deaths fall back to default pack.
         if (attacker is null || attacker.PlayerSlot == victim.PlayerSlot)
         {
-            QueueSound("pancake", PrioPancake, invoker: victim.GetGameClient());
+            var victimClient = victim.GetGameClient();
+            FireSpecial(_special.Suicide, PrioPancake, invoker: victimClient, announceName: victimClient?.Name ?? "?");
             return;
         }
 
@@ -289,7 +289,7 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         // Team kill — announce with killer's pack, don't reward a streak.
         if (attacker.Team == victim.Team)
         {
-            QueueSound("teamkiller", PrioTeamkill, invoker: killerClient);
+            FireSpecial(_special.TeamKill, PrioTeamkill, invoker: killerClient, announceName: killerClient.Name);
             return;
         }
 
@@ -314,42 +314,59 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (!_firstBloodOccurred && (_cvEnableFirstBlood is not { } fb || fb.GetBool()))
         {
             _firstBloodOccurred = true;
-            QueueSound("firstblood", PrioFirstBlood, invoker: killerClient);
-            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.firstblood", "#FF0000");
+            FireSpecial(_special.FirstBlood, PrioFirstBlood, invoker: killerClient, announceName: killerName);
         }
         else if (IsKnife(death.Weapon))
         {
-            QueueSound("humiliation", PrioHumiliation, invoker: killerClient);
-            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.humiliation", "#A020F0");
+            FireSpecial(_special.KnifeKill, PrioHumiliation, invoker: killerClient, announceName: killerName);
         }
         else if (IsGrenade(death.Weapon))
         {
-            QueueSound("excellent", PrioExcellent, invoker: killerClient);
-            ShowLocalizedCenterMessageToAll(killerName, "quakesounds.streak.excellent", "#00FFFF");
+            FireSpecial(_special.GrenadeKill, PrioExcellent, invoker: killerClient, announceName: killerName);
         }
-        else if (streaksEnabled && ComboTiers.TryGetValue(_comboCount[slot], out var comboKey))
+        else if (streaksEnabled && _comboLookup.TryGetValue(_comboCount[slot], out var comboTier))
         {
-            QueueSound(comboKey, PrioComboBase + _comboCount[slot], invoker: killerClient);
-            ShowLocalizedCenterMessageToAll(killerName, $"quakesounds.streak.{comboKey}", "#FFA500");
+            FireTier(comboTier, PrioComboBase + _comboCount[slot], invoker: killerClient, announceName: killerName);
         }
-        else if (streaksEnabled && KillstreakTiers.TryGetValue(_killStreaks[slot], out var streakKey))
+        else if (streaksEnabled && _killstreakLookup.TryGetValue(_killStreaks[slot], out var streakTier))
         {
-            QueueSound(streakKey, PrioKillstreakBase + _killStreaks[slot], invoker: killerClient);
-            ShowLocalizedCenterMessageToAll(killerName, $"quakesounds.streak.{streakKey}", "#FF8C00");
+            FireTier(streakTier, PrioKillstreakBase + _killStreaks[slot], invoker: killerClient, announceName: killerName);
         }
 
         if (death.Headshot && (_cvEnableHeadshot is not { } hs || hs.GetBool()))
         {
-            if (HeadshotTiers.TryGetValue(_headshotStreak[slot], out var hsKey))
+            if (_headshotLookup.TryGetValue(_headshotStreak[slot], out var hsTier))
             {
-                QueueSound(hsKey, PrioHeadshotBase + _headshotStreak[slot], invoker: killerClient);
-                ShowLocalizedCenterMessageToAll(killerName, $"quakesounds.streak.{hsKey}", "#FF4500");
+                FireTier(hsTier, PrioHeadshotBase + _headshotStreak[slot], invoker: killerClient, announceName: killerName);
             }
-            else
+            else if (_special.HeadshotDing is { } hd && !string.IsNullOrEmpty(hd.SoundKey))
             {
-                QueueSound("headshot", PrioHeadshotDing, invoker: killerClient, personal: killerClient);
+                // Personal feedback only — no public banner.
+                QueueSound(hd.SoundKey, PrioHeadshotDing, invoker: killerClient, personal: killerClient);
             }
         }
+    }
+
+    private void FireSpecial(SpecialEntry? entry, int priority, IGameClient? invoker, string announceName)
+    {
+        if (entry is null || string.IsNullOrEmpty(entry.SoundKey))
+            return;
+
+        QueueSound(entry.SoundKey, priority, invoker: invoker);
+
+        if (!string.IsNullOrEmpty(entry.LocaleKey) && !string.IsNullOrEmpty(entry.Color))
+            ShowLocalizedCenterMessageToAll(announceName, entry.LocaleKey, entry.Color);
+    }
+
+    private void FireTier(TierEntry tier, int priority, IGameClient? invoker, string announceName)
+    {
+        if (string.IsNullOrEmpty(tier.SoundKey))
+            return;
+
+        QueueSound(tier.SoundKey, priority, invoker: invoker);
+
+        if (!string.IsNullOrEmpty(tier.LocaleKey) && !string.IsNullOrEmpty(tier.Color))
+            ShowLocalizedCenterMessageToAll(announceName, tier.LocaleKey, tier.Color);
     }
 
     // Sound priorities — higher wins when several land in the same coalescing window. Killstreak

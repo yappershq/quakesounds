@@ -25,6 +25,10 @@ internal sealed class SoundPackManager
     /// <summary>Soundevent files to precache (resolved from config, never empty after LoadPacks).</summary>
     public IReadOnlyList<string> PrecacheFiles => _precacheFiles;
 
+    /// <summary>Tier definitions (killstreak / combo / headshot / special).
+    /// Loaded from <c>quakesounds.json</c> "tiers" block; falls back to built-in defaults.</summary>
+    public TiersConfig Tiers { get; private set; } = DefaultTiers.Build();
+
     // Per-player selected pack id cache (slot-indexed)
     private readonly string?[] _packCache = new string?[64];
 
@@ -65,6 +69,8 @@ internal sealed class SoundPackManager
             _precacheFiles = config?.PrecacheFiles is { Count: > 0 }
                 ? config.PrecacheFiles.Where(f => !string.IsNullOrWhiteSpace(f)).ToList()
                 : [DefaultSoundEventFile];
+
+            Tiers = MergeTiers(config?.Tiers);
         }
         catch (Exception ex)
         {
@@ -147,6 +153,32 @@ internal sealed class SoundPackManager
     {
         _packCache[slot] = null;
     }
+
+    private static TiersConfig MergeTiers(TiersConfig? userTiers)
+    {
+        var defaults = DefaultTiers.Build();
+        if (userTiers is null)
+            return defaults;
+
+        return new TiersConfig
+        {
+            Killstreaks = userTiers.Killstreaks.Count > 0 ? userTiers.Killstreaks : defaults.Killstreaks,
+            Combos      = userTiers.Combos.Count      > 0 ? userTiers.Combos      : defaults.Combos,
+            Headshots   = userTiers.Headshots.Count   > 0 ? userTiers.Headshots   : defaults.Headshots,
+            Special     = MergeSpecial(userTiers.Special, defaults.Special!),
+        };
+    }
+
+    private static SpecialTiers MergeSpecial(SpecialTiers? user, SpecialTiers fallback) => new()
+    {
+        FirstBlood   = user?.FirstBlood   ?? fallback.FirstBlood,
+        KnifeKill    = user?.KnifeKill    ?? fallback.KnifeKill,
+        GrenadeKill  = user?.GrenadeKill  ?? fallback.GrenadeKill,
+        Suicide      = user?.Suicide      ?? fallback.Suicide,
+        TeamKill     = user?.TeamKill     ?? fallback.TeamKill,
+        HeadshotDing = user?.HeadshotDing ?? fallback.HeadshotDing,
+        RoundStart   = user?.RoundStart   ?? fallback.RoundStart,
+    };
 
     private static void CreateDefaultConfig(string configPath)
     {
