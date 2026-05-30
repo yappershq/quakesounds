@@ -670,19 +670,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (controller is not { IsValidEntity: true })
                 continue;
 
-            var pawn = controller.GetPlayerPawn();
-            if (pawn is not { IsValidEntity: true, IsAlive: true })
-                continue;
-
-            // Resolve sound from the listener's selected pack
             var pack = _soundPackManager.GetPlayerPack(client.Slot);
             var soundEvent = pack.GetSound(soundKey);
+            if (string.IsNullOrEmpty(soundEvent))
+                continue;
 
-            if (!string.IsNullOrEmpty(soundEvent))
-            {
-                var volume = GetPlayerVolume(client.Slot);
-                pawn.EmitSoundClient(soundEvent, volume);
-            }
+            controller.EmitSoundClient(soundEvent, GetPlayerVolume(client.Slot));
         }
     }
 
@@ -692,19 +685,12 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (controller is not { IsValidEntity: true })
             return;
 
-        var pawn = controller.GetPlayerPawn();
-        if (pawn is not { IsValidEntity: true, IsAlive: true })
-            return;
-
-        // Resolve sound from the player's selected pack
         var pack = _soundPackManager.GetPlayerPack(client.Slot);
         var soundEvent = pack.GetSound(soundKey);
+        if (string.IsNullOrEmpty(soundEvent))
+            return;
 
-        if (!string.IsNullOrEmpty(soundEvent))
-        {
-            var volume = GetPlayerVolume(client.Slot);
-            pawn.EmitSoundClient(soundEvent, volume);
-        }
+        controller.EmitSoundClient(soundEvent, GetPlayerVolume(client.Slot));
     }
 
     #endregion
