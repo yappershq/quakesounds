@@ -654,16 +654,11 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             PlaySoundToPlayer(client, key, invoker);
     }
 
-    private SoundPack ResolvePack(IGameClient? invoker)
-        => invoker is { IsInGame: true }
-            ? _soundPackManager.GetPlayerPack(invoker.Slot)
-            : _soundPackManager.DefaultPack;
-
     private void PlaySoundToAll(string soundKey, IGameClient? invoker)
     {
-        var soundEvent = ResolvePack(invoker).GetSound(soundKey);
-        if (string.IsNullOrEmpty(soundEvent))
-            return;
+        string? sharedEvent = null;
+        if (invoker is { IsInGame: true })
+            sharedEvent = _soundPackManager.GetPlayerPack(invoker.Slot).GetSound(soundKey);
 
         foreach (var client in _bridge.ClientManager.GetGameClients(true))
         {
@@ -676,6 +671,10 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
             if (controller is not { IsValidEntity: true })
                 continue;
 
+            var soundEvent = sharedEvent ?? _soundPackManager.GetPlayerPack(client.Slot).GetSound(soundKey);
+            if (string.IsNullOrEmpty(soundEvent))
+                continue;
+
             controller.EmitSoundClient(soundEvent, GetPlayerVolume(client.Slot));
         }
     }
@@ -686,7 +685,8 @@ internal sealed class QuakeSoundsModule : IModule, IGameListener, IClientListene
         if (controller is not { IsValidEntity: true })
             return;
 
-        var soundEvent = ResolvePack(invoker ?? client).GetSound(soundKey);
+        var packOwner = invoker is { IsInGame: true } ? invoker : client;
+        var soundEvent = _soundPackManager.GetPlayerPack(packOwner.Slot).GetSound(soundKey);
         if (string.IsNullOrEmpty(soundEvent))
             return;
 
